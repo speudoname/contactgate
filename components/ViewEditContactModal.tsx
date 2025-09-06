@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { getApiUrl } from '@/lib/utils/api'
 import EventsTimeline from './EventsTimeline'
-import type { Contact } from '@/types'
+import type { Contact, ReferenceData } from '@/types'
 
 interface ViewEditContactModalProps {
   contact: Contact
@@ -21,13 +21,39 @@ export default function ViewEditContactModal({ contact, isOpen, onClose, onUpdat
     phone: contact.phone || '',
     company: contact.company || '',
     job_title: contact.job_title || '',
+    website: contact.website || '',
     lifecycle_stage: contact.lifecycle_stage || 'subscriber',
     source: contact.source || 'manual',
     email_opt_in: contact.email_opt_in || false,
+    sms_opt_in: contact.sms_opt_in || false,
     notes: contact.notes || ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [selectedTags, setSelectedTags] = useState<string[]>(contact.tags || [])
+  const [referenceData, setReferenceData] = useState<ReferenceData>({
+    lifecycleStages: [],
+    sources: [],
+    tags: []
+  })
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchReferenceData()
+    }
+  }, [isOpen])
+
+  const fetchReferenceData = async () => {
+    try {
+      const response = await fetch(getApiUrl('/api/reference-data'))
+      if (response.ok) {
+        const data = await response.json()
+        setReferenceData(data)
+      }
+    } catch (err) {
+      console.error('Failed to fetch reference data:', err)
+    }
+  }
 
   const handleSave = async () => {
     setLoading(true)
@@ -64,9 +90,11 @@ export default function ViewEditContactModal({ contact, isOpen, onClose, onUpdat
       phone: contact.phone || '',
       company: contact.company || '',
       job_title: contact.job_title || '',
+      website: contact.website || '',
       lifecycle_stage: contact.lifecycle_stage || 'subscriber',
       source: contact.source || 'manual',
       email_opt_in: contact.email_opt_in || false,
+      sms_opt_in: contact.sms_opt_in || false,
       notes: contact.notes || ''
     })
     setIsEditing(false)
@@ -202,6 +230,24 @@ export default function ViewEditContactModal({ contact, isOpen, onClose, onUpdat
             </div>
           </div>
 
+          {/* Website */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Website
+            </label>
+            {isEditing ? (
+              <input
+                type="url"
+                value={formData.website}
+                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                className="w-full px-3 py-2 border-2 border-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="https://example.com"
+              />
+            ) : (
+              <p className="px-3 py-2">{contact.website || '-'}</p>
+            )}
+          </div>
+
           {/* CRM Fields */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -214,13 +260,19 @@ export default function ViewEditContactModal({ contact, isOpen, onClose, onUpdat
                   onChange={(e) => setFormData({ ...formData, lifecycle_stage: e.target.value })}
                   className="w-full px-3 py-2 border-2 border-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="subscriber">Subscriber</option>
-                  <option value="lead">Lead</option>
-                  <option value="marketing_qualified_lead">Marketing Qualified Lead</option>
-                  <option value="sales_qualified_lead">Sales Qualified Lead</option>
-                  <option value="opportunity">Opportunity</option>
-                  <option value="customer">Customer</option>
-                  <option value="evangelist">Evangelist</option>
+                  {referenceData.lifecycleStages.length > 0 ? (
+                    referenceData.lifecycleStages.map(stage => (
+                      <option key={stage.id} value={stage.name}>
+                        {stage.display_name}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="subscriber">Subscriber</option>
+                      <option value="lead">Lead</option>
+                      <option value="customer">Customer</option>
+                    </>
+                  )}
                 </select>
               ) : (
                 <p className="px-3 py-2">
@@ -237,6 +289,94 @@ export default function ViewEditContactModal({ contact, isOpen, onClose, onUpdat
               <p className="px-3 py-2">{contact.lead_score}</p>
             </div>
           </div>
+
+          {/* Source */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Source
+              </label>
+              {isEditing ? (
+                <select
+                  value={formData.source}
+                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                  className="w-full px-3 py-2 border-2 border-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {referenceData.sources.length > 0 ? (
+                    referenceData.sources.map(source => (
+                      <option key={source.id} value={source.name}>
+                        {source.display_name}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="manual">Manual Entry</option>
+                      <option value="website">Website</option>
+                      <option value="import">Import</option>
+                    </>
+                  )}
+                </select>
+              ) : (
+                <p className="px-3 py-2">{contact.source || '-'}</p>
+              )}
+            </div>
+            <div></div>
+          </div>
+
+          {/* Tags */}
+          {isEditing && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tags
+              </label>
+              <div className="flex flex-wrap gap-2 p-3 border-2 border-black rounded-md min-h-[60px]">
+                {referenceData.tags.map(tag => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => {
+                      if (selectedTags.includes(tag.id)) {
+                        setSelectedTags(selectedTags.filter(t => t !== tag.id))
+                      } else {
+                        setSelectedTags([...selectedTags, tag.id])
+                      }
+                    }}
+                    className={`px-3 py-1 rounded-full text-sm font-medium border-2 transition-all ${
+                      selectedTags.includes(tag.id)
+                        ? 'border-black bg-blue-400 text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-black'
+                    }`}
+                    style={{
+                      backgroundColor: selectedTags.includes(tag.id) ? tag.color : undefined
+                    }}
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+                {referenceData.tags.length === 0 && (
+                  <span className="text-gray-400 text-sm">No tags configured</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!isEditing && contact.tags && contact.tags.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tags
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {contact.tags.map((tag, index) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1 text-sm font-medium rounded-full bg-blue-100 text-blue-800 border border-blue-200"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Notes */}
           <div>
@@ -255,26 +395,48 @@ export default function ViewEditContactModal({ contact, isOpen, onClose, onUpdat
             )}
           </div>
 
-          {/* Email Opt-in */}
-          <div className="flex items-center">
-            {isEditing ? (
-              <>
-                <input
-                  type="checkbox"
-                  id="email_opt_in"
-                  checked={formData.email_opt_in}
-                  onChange={(e) => setFormData({ ...formData, email_opt_in: e.target.checked })}
-                  className="h-4 w-4 border-2 border-black rounded focus:ring-2 focus:ring-blue-500"
-                />
-                <label htmlFor="email_opt_in" className="ml-2 text-sm text-gray-700">
-                  Email marketing opt-in
-                </label>
-              </>
-            ) : (
-              <p className="text-sm text-gray-700">
-                Email opt-in: {contact.email_opt_in ? 'Yes' : 'No'}
-              </p>
-            )}
+          {/* Marketing Opt-ins */}
+          <div className="space-y-2">
+            <div className="flex items-center">
+              {isEditing ? (
+                <>
+                  <input
+                    type="checkbox"
+                    id="email_opt_in"
+                    checked={formData.email_opt_in}
+                    onChange={(e) => setFormData({ ...formData, email_opt_in: e.target.checked })}
+                    className="h-4 w-4 border-2 border-black rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <label htmlFor="email_opt_in" className="ml-2 text-sm text-gray-700">
+                    Email marketing opt-in
+                  </label>
+                </>
+              ) : (
+                <p className="text-sm text-gray-700">
+                  Email opt-in: {contact.email_opt_in ? 'Yes' : 'No'}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center">
+              {isEditing ? (
+                <>
+                  <input
+                    type="checkbox"
+                    id="sms_opt_in"
+                    checked={formData.sms_opt_in}
+                    onChange={(e) => setFormData({ ...formData, sms_opt_in: e.target.checked })}
+                    className="h-4 w-4 border-2 border-black rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <label htmlFor="sms_opt_in" className="ml-2 text-sm text-gray-700">
+                    SMS marketing opt-in
+                  </label>
+                </>
+              ) : (
+                <p className="text-sm text-gray-700">
+                  SMS opt-in: {contact.sms_opt_in ? 'Yes' : 'No'}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Metadata */}

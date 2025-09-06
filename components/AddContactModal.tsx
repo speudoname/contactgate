@@ -23,9 +23,11 @@ export default function AddContactModal({ isOpen, onClose, onSuccess }: AddConta
     phone: '',
     company: '',
     job_title: '',
+    website: '',
     lifecycle_stage: 'subscriber',
     source: 'manual',
     email_opt_in: false,
+    sms_opt_in: false,
     notes: ''
   })
   const [loading, setLoading] = useState(false)
@@ -84,9 +86,11 @@ export default function AddContactModal({ isOpen, onClose, onSuccess }: AddConta
         phone: '',
         company: '',
         job_title: '',
+        website: '',
         lifecycle_stage: 'subscriber',
         source: 'manual',
         email_opt_in: false,
+        sms_opt_in: false,
         notes: ''
       })
       
@@ -194,6 +198,20 @@ export default function AddContactModal({ isOpen, onClose, onSuccess }: AddConta
             </div>
           </div>
 
+          {/* Website */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Website
+            </label>
+            <input
+              type="url"
+              value={formData.website}
+              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+              className="w-full px-3 py-2 border-2 border-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="https://example.com"
+            />
+          </div>
+
           {/* CRM Fields */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -278,18 +296,32 @@ export default function AddContactModal({ isOpen, onClose, onSuccess }: AddConta
             />
           </div>
 
-          {/* Email Opt-in */}
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="email_opt_in"
-              checked={formData.email_opt_in}
-              onChange={(e) => setFormData({ ...formData, email_opt_in: e.target.checked })}
-              className="h-4 w-4 border-2 border-black rounded focus:ring-2 focus:ring-blue-500"
-            />
-            <label htmlFor="email_opt_in" className="ml-2 text-sm text-gray-700">
-              Email marketing opt-in
-            </label>
+          {/* Marketing Opt-ins */}
+          <div className="space-y-2">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="email_opt_in"
+                checked={formData.email_opt_in}
+                onChange={(e) => setFormData({ ...formData, email_opt_in: e.target.checked })}
+                className="h-4 w-4 border-2 border-black rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <label htmlFor="email_opt_in" className="ml-2 text-sm text-gray-700">
+                Email marketing opt-in
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="sms_opt_in"
+                checked={formData.sms_opt_in}
+                onChange={(e) => setFormData({ ...formData, sms_opt_in: e.target.checked })}
+                className="h-4 w-4 border-2 border-black rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <label htmlFor="sms_opt_in" className="ml-2 text-sm text-gray-700">
+                SMS marketing opt-in
+              </label>
+            </div>
           </div>
 
           {/* Actions */}
