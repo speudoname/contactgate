@@ -20,9 +20,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch contacts for this tenant
+    // Fetch contacts for this tenant from contacts schema
     const { data: contacts, error } = await supabase
-      .from('contacts')
+      .from('contacts.contacts')
       .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
@@ -51,9 +51,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     
-    // Create new contact
+    // Create new contact in contacts schema
     const { data: contact, error } = await supabase
-      .from('contacts')
+      .from('contacts.contacts')
       .insert({
         tenant_id: tenantId,
         email: body.email,
@@ -75,9 +75,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create contact' }, { status: 500 })
     }
 
-    // Log event
+    // Log event in contacts schema
     await supabase
-      .from('events')
+      .from('contacts.events')
       .insert({
         tenant_id: tenantId,
         contact_id: contact.id,
