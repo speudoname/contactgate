@@ -31,9 +31,10 @@ export async function GET(request: NextRequest) {
 
     console.log('Fetching contacts for tenant:', tenantId)
     
-    // Fetch contacts for this tenant - use table in public schema (no prefix)
+    // Fetch contacts from the contacts schema - Supabase uses dot notation
     const { data: contacts, error } = await supabase
-      .from('contacts')  // Just table name, no schema prefix
+      .schema('contacts')  // Specify the schema first
+      .from('contacts')    // Then the table name
       .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
@@ -67,8 +68,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     
-    // Create new contact - use table in public schema (no prefix)
+    // Create new contact in contacts schema
     const { data: contact, error } = await supabase
+      .schema('contacts')
       .from('contacts')
       .insert({
         tenant_id: tenantId,
@@ -91,8 +93,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create contact' }, { status: 500 })
     }
 
-    // Log event - use table in public schema (no prefix)
+    // Log event in contacts schema
     await supabase
+      .schema('contacts')
       .from('events')
       .insert({
         tenant_id: tenantId,
