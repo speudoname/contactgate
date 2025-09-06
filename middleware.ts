@@ -14,6 +14,7 @@ export async function middleware(request: NextRequest) {
   try {
     // Get token from various sources
     let token = request.nextUrl.searchParams.get('token')
+    const hasTokenInUrl = !!token
     
     if (!token) {
       // Try to get from Authorization header
@@ -30,15 +31,39 @@ export async function middleware(request: NextRequest) {
 
     if (!token) {
       console.log('No token found in request')
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
+      // Redirect to gateway login instead of returning JSON error
+      const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://numgate.vercel.app'
+      return NextResponse.redirect(new URL('/login', gatewayUrl))
     }
 
     // Verify JWT token
     const secret = new TextEncoder().encode(process.env.JWT_SECRET!)
     const { payload } = await jwtVerify(token, secret)
+    
+    // If token was in URL, redirect to clean URL with cookie set
+    if (hasTokenInUrl) {
+      const url = request.nextUrl.clone()
+      url.searchParams.delete('token')
+      
+      const response = NextResponse.redirect(url)
+      
+      // Set cookie with token for easier subsequent requests
+      response.cookies.set('auth-token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24, // 24 hours
+        path: '/',
+      })
+      
+      // Add headers
+      response.headers.set('x-tenant-id', payload.tenant_id as string)
+      response.headers.set('x-user-id', payload.user_id as string)
+      response.headers.set('x-user-email', payload.email as string)
+      response.headers.set('x-user-role', payload.role as string || 'user')
+      
+      return response
+    }
     
     // Add tenant and user context to headers for API routes
     const requestHeaders = new Headers(request.headers)
@@ -47,29 +72,19 @@ export async function middleware(request: NextRequest) {
     requestHeaders.set('x-user-email', payload.email as string)
     requestHeaders.set('x-user-role', payload.role as string || 'user')
     
-    // Store token in cookie for subsequent requests
+    // Continue with request
     const response = NextResponse.next({
       request: {
         headers: requestHeaders,
       },
     })
     
-    // Set cookie with token for easier subsequent requests
-    response.cookies.set('auth-token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24, // 24 hours
-      path: '/',
-    })
-    
     return response
   } catch (error) {
     console.error('JWT verification failed:', error)
-    return NextResponse.json(
-      { error: 'Invalid authentication token' },
-      { status: 401 }
-    )
+    // Redirect to gateway login on JWT verification failure
+    const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://numgate.vercel.app'
+    return NextResponse.redirect(new URL('/login', gatewayUrl))
   }
 }
 

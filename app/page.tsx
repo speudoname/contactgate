@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 interface Contact {
   id: string
@@ -18,14 +18,24 @@ interface Contact {
 
 export default function ContactsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
+    // Check if token is in URL params (first time coming from NumGate)
+    const tokenFromUrl = searchParams.get('token')
+    if (tokenFromUrl) {
+      // Store token in cookie for subsequent requests
+      document.cookie = `auth-token=${tokenFromUrl}; path=/; secure; samesite=lax`
+      // Remove token from URL to clean it up
+      router.replace('/')
+    }
+    
     fetchContacts()
-  }, [])
+  }, [searchParams, router])
 
   const fetchContacts = async () => {
     try {
