@@ -8,6 +8,9 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
+  },
+  db: {
+    schema: 'contacts'
   }
 })
 
@@ -31,10 +34,9 @@ export async function GET(request: NextRequest) {
 
     console.log('Fetching contacts for tenant:', tenantId)
     
-    // Fetch contacts from the correct table
-    // Try the public schema first (based on your SQL scripts)
+    // Fetch contacts from the contacts schema
     const { data: contacts, error } = await supabase
-      .from('contacts')  // This accesses public.contacts by default
+      .from('contacts')  // Now uses contacts schema by default due to db config
       .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     
-    // Create new contact in the public.contacts table
+    // Create new contact in the contacts schema
     const { data: contact, error } = await supabase
       .from('contacts')
       .insert({
@@ -92,13 +94,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create contact' }, { status: 500 })
     }
 
-    // Log event if events table exists
-    // Note: The events table may be in the contacts schema if it exists
-    // For now, we'll skip event logging since the events table isn't in public schema
-    // Uncomment and adjust when events table is properly set up
-    /*
+    // Log event in contacts schema
     await supabase
-      .from('events')  // or 'contacts.events' if using contacts schema
+      .from('events')  // Now uses contacts schema by default
       .insert({
         tenant_id: tenantId,
         contact_id: contact.id,
@@ -109,7 +107,6 @@ export async function POST(request: NextRequest) {
           created_by: userId
         }
       })
-    */
 
     return NextResponse.json({ contact })
   } catch (error) {
