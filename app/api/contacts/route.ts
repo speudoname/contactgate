@@ -31,44 +31,15 @@ export async function GET(request: NextRequest) {
 
     console.log('Fetching contacts for tenant:', tenantId)
     
-    // Check if the schema and table exist first
-    const { data: testConnection, error: testError } = await supabase
-      .from('contacts')  // Try without schema prefix first
-      .select('count')
-      .eq('tenant_id', tenantId)
-      .limit(1)
-    
-    if (testError) {
-      console.log('Testing with schema prefix instead...')
-      // Fetch contacts for this tenant from contacts schema
-      const { data: contacts, error } = await supabase
-        .from('contacts.contacts')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Error fetching contacts with schema:', error)
-        return NextResponse.json({ 
-          error: 'Database error', 
-          details: error.message,
-          code: error.code 
-        }, { status: 500 })
-      }
-
-      console.log('Found contacts:', contacts?.length || 0)
-      return NextResponse.json({ contacts: contacts || [] })
-    }
-    
-    // If no schema prefix works
+    // Fetch contacts for this tenant - use table in public schema (no prefix)
     const { data: contacts, error } = await supabase
-      .from('contacts')
+      .from('contacts')  // Just table name, no schema prefix
       .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching contacts without schema:', error)
+      console.error('Error fetching contacts:', error)
       return NextResponse.json({ 
         error: 'Database error', 
         details: error.message,
@@ -96,9 +67,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     
-    // Create new contact in contacts schema
+    // Create new contact - use table in public schema (no prefix)
     const { data: contact, error } = await supabase
-      .from('contacts.contacts')
+      .from('contacts')
       .insert({
         tenant_id: tenantId,
         email: body.email,
@@ -120,9 +91,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create contact' }, { status: 500 })
     }
 
-    // Log event in contacts schema
+    // Log event - use table in public schema (no prefix)
     await supabase
-      .from('contacts.events')
+      .from('events')
       .insert({
         tenant_id: tenantId,
         contact_id: contact.id,
