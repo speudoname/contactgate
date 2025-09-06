@@ -97,12 +97,7 @@ CREATE TABLE contacts.events (
   session_id TEXT,
   
   -- Timestamps
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  
-  -- Indexes for performance
-  INDEX idx_events_tenant_contact (tenant_id, contact_id),
-  INDEX idx_events_type (event_type),
-  INDEX idx_events_created (created_at DESC)
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Tags table
@@ -195,6 +190,11 @@ CREATE INDEX idx_contacts_lifecycle ON contacts.contacts(lifecycle_stage);
 CREATE INDEX idx_contacts_created ON contacts.contacts(created_at DESC);
 CREATE INDEX idx_contacts_activity ON contacts.contacts(last_activity_at DESC);
 CREATE INDEX idx_contacts_tags ON contacts.contacts USING GIN(tags);
+
+-- Create indexes for events table
+CREATE INDEX idx_events_tenant_contact ON contacts.events(tenant_id, contact_id);
+CREATE INDEX idx_events_type ON contacts.events(event_type);
+CREATE INDEX idx_events_created ON contacts.events(created_at DESC);
 
 -- RLS Policies (following NumGate pattern - service key with tenant filtering)
 ALTER TABLE contacts.contacts ENABLE ROW LEVEL SECURITY;
