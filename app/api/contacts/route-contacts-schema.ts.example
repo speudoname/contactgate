@@ -1,43 +1,71 @@
+// ALTERNATIVE VERSION: If you have a separate 'contacts' schema in Supabase
+// This shows how to properly access tables in non-public schemas
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!
 
+// For non-public schemas, you need to specify the schema in the client options
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
+  },
+  db: {
+    schema: 'contacts'  // Set the default schema to 'contacts'
+  }
+})
+
+// Alternative: Create a client for each schema
+const supabasePublic = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  },
+  db: {
+    schema: 'public'
+  }
+})
+
+const supabaseContacts = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  },
+  db: {
+    schema: 'contacts'
   }
 })
 
 export async function GET(request: NextRequest) {
   try {
-    // Log all headers for debugging
-    console.log('API Headers:', {
-      'x-tenant-id': request.headers.get('x-tenant-id'),
-      'x-user-id': request.headers.get('x-user-id'),
-      'x-proxied-from': request.headers.get('x-proxied-from'),
-      'x-auth-token': request.headers.get('x-auth-token')
-    })
-    
-    // Get tenant context from headers (set by middleware)
     const tenantId = request.headers.get('x-tenant-id')
     
     if (!tenantId) {
-      console.error('No tenant ID in headers')
       return NextResponse.json({ error: 'Unauthorized - No tenant ID' }, { status: 401 })
     }
 
-    console.log('Fetching contacts for tenant:', tenantId)
-    
-    // Fetch contacts from the correct table
-    // Try the public schema first (based on your SQL scripts)
+    // Option 1: Use the client with contacts schema as default
     const { data: contacts, error } = await supabase
-      .from('contacts')  // This accesses public.contacts by default
+      .from('contacts')  // This will access contacts.contacts
       .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
+
+    // Option 2: Use schema-specific client
+    const { data: contactsAlt, error: errorAlt } = await supabaseContacts
+      .from('contacts')  // This will access contacts.contacts
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+
+    // Option 3: Use RPC to query across schemas
+    const { data: contactsRpc, error: errorRpc } = await supabasePublic
+      .rpc('get_contacts_from_schema', {
+        p_tenant_id: tenantId
+      })
 
     if (error) {
       console.error('Error fetching contacts:', error)
@@ -48,7 +76,6 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
 
-    console.log('Found contacts:', contacts?.length || 0)
     return NextResponse.json({ contacts: contacts || [] })
   } catch (error) {
     console.error('Error in contacts API:', error)
@@ -58,7 +85,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Get tenant context from headers
     const tenantId = request.headers.get('x-tenant-id')
     const userId = request.headers.get('x-user-id')
     
@@ -68,9 +94,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     
-    // Create new contact in the public.contacts table
+    // Create new contact in the contacts schema
     const { data: contact, error } = await supabase
-      .from('contacts')
+      .from('contacts')  // This accesses contacts.contacts
       .insert({
         tenant_id: tenantId,
         email: body.email,
@@ -92,13 +118,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create contact' }, { status: 500 })
     }
 
-    // Log event if events table exists
-    // Note: The events table may be in the contacts schema if it exists
-    // For now, we'll skip event logging since the events table isn't in public schema
-    // Uncomment and adjust when events table is properly set up
-    /*
+    // Log event in the contacts schema
     await supabase
-      .from('events')  // or 'contacts.events' if using contacts schema
+      .from('events')  // This accesses contacts.events
       .insert({
         tenant_id: tenantId,
         contact_id: contact.id,
@@ -109,7 +131,6 @@ export async function POST(request: NextRequest) {
           created_by: userId
         }
       })
-    */
 
     return NextResponse.json({ contact })
   } catch (error) {
@@ -117,3 +138,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// SQL function that could be created to access contacts schema from public schema:
+/*
+CREATE OR REPLACE FUNCTION public.get_contacts_from_schema(p_tenant_id UUID)
+RETURNS TABLE (
+  id UUID,
+  tenant_id UUID,
+  email TEXT,
+  first_name TEXT,
+  last_name TEXT,
+  full_name TEXT,
+  company TEXT,
+  job_title TEXT,
+  lifecycle_stage TEXT,
+  created_at TIMESTAMPTZ
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    c.id,
+    c.tenant_id,
+    c.email,
+    c.first_name,
+    c.last_name,
+    c.full_name,
+    c.company,
+    c.job_title,
+    c.lifecycle_stage,
+    c.created_at
+  FROM contacts.contacts c
+  WHERE c.tenant_id = p_tenant_id
+  ORDER BY c.created_at DESC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+*/
