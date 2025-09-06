@@ -13,25 +13,70 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 
 export async function GET(request: NextRequest) {
   try {
+    // Log all headers for debugging
+    console.log('API Headers:', {
+      'x-tenant-id': request.headers.get('x-tenant-id'),
+      'x-user-id': request.headers.get('x-user-id'),
+      'x-proxied-from': request.headers.get('x-proxied-from'),
+      'x-auth-token': request.headers.get('x-auth-token')
+    })
+    
     // Get tenant context from headers (set by middleware)
     const tenantId = request.headers.get('x-tenant-id')
     
     if (!tenantId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      console.error('No tenant ID in headers')
+      return NextResponse.json({ error: 'Unauthorized - No tenant ID' }, { status: 401 })
     }
 
-    // Fetch contacts for this tenant from contacts schema
+    console.log('Fetching contacts for tenant:', tenantId)
+    
+    // Check if the schema and table exist first
+    const { data: testConnection, error: testError } = await supabase
+      .from('contacts')  // Try without schema prefix first
+      .select('count')
+      .eq('tenant_id', tenantId)
+      .limit(1)
+    
+    if (testError) {
+      console.log('Testing with schema prefix instead...')
+      // Fetch contacts for this tenant from contacts schema
+      const { data: contacts, error } = await supabase
+        .from('contacts.contacts')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching contacts with schema:', error)
+        return NextResponse.json({ 
+          error: 'Database error', 
+          details: error.message,
+          code: error.code 
+        }, { status: 500 })
+      }
+
+      console.log('Found contacts:', contacts?.length || 0)
+      return NextResponse.json({ contacts: contacts || [] })
+    }
+    
+    // If no schema prefix works
     const { data: contacts, error } = await supabase
-      .from('contacts.contacts')
+      .from('contacts')
       .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching contacts:', error)
-      return NextResponse.json({ error: 'Failed to fetch contacts' }, { status: 500 })
+      console.error('Error fetching contacts without schema:', error)
+      return NextResponse.json({ 
+        error: 'Database error', 
+        details: error.message,
+        code: error.code 
+      }, { status: 500 })
     }
 
+    console.log('Found contacts:', contacts?.length || 0)
     return NextResponse.json({ contacts: contacts || [] })
   } catch (error) {
     console.error('Error in contacts API:', error)

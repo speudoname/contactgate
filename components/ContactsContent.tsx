@@ -40,67 +40,27 @@ export default function ContactsContent() {
 
   const fetchContacts = async () => {
     try {
-      // Temporarily comment out API call to test if interface loads
-      console.log('Attempting to fetch contacts from:', getApiUrl('/api/contacts'))
+      const apiUrl = getApiUrl('/api/contacts')
+      console.log('Fetching contacts from:', apiUrl)
       
-      // Set mock data to test interface
-      setContacts([
-        {
-          id: '1',
-          email: 'john.doe@example.com',
-          first_name: 'John',
-          last_name: 'Doe',
-          full_name: 'John Doe',
-          lifecycle_stage: 'customer',
-          lead_score: 85,
-          created_at: '2024-01-15T10:00:00Z',
-          last_activity_at: '2024-01-20T15:30:00Z',
-          tags: ['premium', 'active']
-        },
-        {
-          id: '2',
-          email: 'jane.smith@example.com',
-          first_name: 'Jane',
-          last_name: 'Smith',
-          full_name: 'Jane Smith',
-          lifecycle_stage: 'lead',
-          lead_score: 65,
-          created_at: '2024-01-10T09:00:00Z',
-          last_activity_at: '2024-01-18T11:20:00Z',
-          tags: ['interested', 'demo-requested']
-        },
-        {
-          id: '3',
-          email: 'bob.wilson@example.com',
-          first_name: 'Bob',
-          last_name: 'Wilson',
-          full_name: 'Bob Wilson',
-          lifecycle_stage: 'subscriber',
-          lead_score: 45,
-          created_at: '2024-01-05T14:00:00Z',
-          last_activity_at: null,
-          tags: ['newsletter']
-        }
-      ])
-      
-      // Uncomment below to test actual API
-      /*
-      const response = await fetch(getApiUrl('/api/contacts'))
+      const response = await fetch(apiUrl)
       
       if (!response.ok) {
+        const errorText = await response.text()
+        console.error('API Error:', response.status, errorText)
+        
         if (response.status === 401) {
-          // Token might be invalid, redirect to gateway login
-          window.location.href = '/login'
+          setError('Authentication failed - not logged in')
           return
         }
-        throw new Error('Failed to fetch contacts')
+        throw new Error(`API returned ${response.status}: ${errorText}`)
       }
 
       const data = await response.json()
       setContacts(data.contacts || [])
-      */
     } catch (err) {
-      setError('Failed to load contacts')
+      console.error('Failed to fetch contacts:', err)
+      setError(`Failed to load contacts: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
@@ -144,20 +104,13 @@ export default function ContactsContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mock Data Banner */}
-      <div className="bg-yellow-400 border-b-2 border-black px-4 py-2 text-center">
-        <p className="text-sm font-bold">
-          🚧 DEMO MODE: Using mock data - Database connection temporarily disabled for testing 🚧
-        </p>
-      </div>
-      
       {/* Header */}
       <header className="bg-white border-b-2 border-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div>
               <h1 className="text-2xl font-bold">Contact Management</h1>
-              <p className="text-sm text-gray-600">{contacts.length} total contacts (Mock Data - Not from Database)</p>
+              <p className="text-sm text-gray-600">{contacts.length} total contacts</p>
             </div>
             <div className="flex items-center gap-4">
               <button
