@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getApiUrl } from '@/lib/utils/api'
+import AddContactModal from './AddContactModal'
+import ViewEditContactModal from './ViewEditContactModal'
 
 interface Contact {
   id: string
@@ -24,6 +26,9 @@ export default function ContactsContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false)
 
   useEffect(() => {
     // Check if token is in URL params (first time coming from NumGate)
@@ -67,11 +72,32 @@ export default function ContactsContent() {
   }
 
   const handleAddContact = () => {
-    router.push('/contacts/new')
+    setIsAddModalOpen(true)
   }
 
-  const handleViewContact = (contactId: string) => {
-    router.push(`/contacts/${contactId}`)
+  const handleViewContact = (contact: Contact) => {
+    setSelectedContact(contact)
+    setIsViewModalOpen(true)
+  }
+
+  const handleDeleteContact = async (contactId: string) => {
+    if (!confirm('Are you sure you want to delete this contact?')) return
+
+    try {
+      const response = await fetch(getApiUrl(`/api/contacts/${contactId}`), {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete contact')
+      }
+
+      // Refresh contacts list
+      fetchContacts()
+    } catch (err) {
+      console.error('Failed to delete contact:', err)
+      alert('Failed to delete contact')
+    }
   }
 
   const filteredContacts = contacts.filter(contact => {
@@ -203,12 +229,20 @@ export default function ContactsContent() {
                       {new Date(contact.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => handleViewContact(contact.id)}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        View
-                      </button>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => handleViewContact(contact)}
+                          className="text-indigo-600 hover:text-indigo-900"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleDeleteContact(contact.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -217,6 +251,33 @@ export default function ContactsContent() {
           </div>
         )}
       </main>
+
+      {/* Add Contact Modal */}
+      <AddContactModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={() => {
+          setIsAddModalOpen(false)
+          fetchContacts()
+        }}
+      />
+
+      {/* View/Edit Contact Modal */}
+      {selectedContact && (
+        <ViewEditContactModal
+          contact={selectedContact}
+          isOpen={isViewModalOpen}
+          onClose={() => {
+            setIsViewModalOpen(false)
+            setSelectedContact(null)
+          }}
+          onUpdate={() => {
+            fetchContacts()
+            setIsViewModalOpen(false)
+            setSelectedContact(null)
+          }}
+        />
+      )}
     </div>
   )
 }
