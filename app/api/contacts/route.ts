@@ -31,10 +31,10 @@ export async function GET(request: NextRequest) {
 
     console.log('Fetching contacts for tenant:', tenantId)
     
-    // Fetch contacts from the contacts schema - Supabase uses dot notation
+    // Fetch contacts from the contacts schema using dot notation
+    // Supabase REST API requires schema.table format for non-public schemas
     const { data: contacts, error } = await supabase
-      .schema('contacts')  // Specify the schema first
-      .from('contacts')    // Then the table name
+      .from('contacts.contacts')  // Use schema.table notation
       .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
@@ -68,10 +68,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     
-    // Create new contact in contacts schema
+    // Create new contact using schema.table notation
     const { data: contact, error } = await supabase
-      .schema('contacts')
-      .from('contacts')
+      .from('contacts.contacts')
       .insert({
         tenant_id: tenantId,
         email: body.email,
@@ -93,10 +92,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create contact' }, { status: 500 })
     }
 
-    // Log event in contacts schema
+    // Log event using schema.table notation
     await supabase
-      .schema('contacts')
-      .from('events')
+      .from('contacts.events')
       .insert({
         tenant_id: tenantId,
         contact_id: contact.id,
