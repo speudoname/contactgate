@@ -107,7 +107,14 @@ export default function ContactsContent() {
             </div>
             <div className="flex items-center gap-4">
               <button
-                onClick={() => window.location.href = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3000'}
+                onClick={() => {
+                  // In production, we're served from /contacts, so go back to dashboard
+                  if (process.env.NODE_ENV === 'production') {
+                    window.location.href = '/dashboard'
+                  } else {
+                    window.location.href = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3000'
+                  }
+                }}
                 className="px-4 py-2 border-2 border-black text-sm font-medium rounded-md bg-white hover:bg-gray-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all"
               >
                 Back to NumGate
