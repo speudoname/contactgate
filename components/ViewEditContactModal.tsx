@@ -3,26 +3,7 @@
 import { useState } from 'react'
 import { getApiUrl } from '@/lib/utils/api'
 import EventsTimeline from './EventsTimeline'
-
-interface Contact {
-  id: string
-  email: string
-  first_name: string | null
-  last_name: string | null
-  full_name: string | null
-  phone?: string | null
-  company?: string | null
-  job_title?: string | null
-  lifecycle_stage: string
-  lead_score: number
-  source?: string | null
-  notes?: string | null
-  email_opt_in?: boolean
-  created_at: string
-  updated_at?: string
-  last_activity_at: string | null
-  tags: string[]
-}
+import type { Contact } from '@/types'
 
 interface ViewEditContactModalProps {
   contact: Contact

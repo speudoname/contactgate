@@ -2,15 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { getApiUrl } from '@/lib/utils/api'
-
-interface Event {
-  id: string
-  event_type: string
-  event_category: string
-  source_app: string
-  properties: any
-  created_at: string
-}
+import type { Event } from '@/types'
 
 interface EventsTimelineProps {
   contactId: string

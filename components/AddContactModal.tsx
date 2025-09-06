@@ -2,17 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { getApiUrl } from '@/lib/utils/api'
+import type { ReferenceData } from '@/types'
 
 interface AddContactModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-}
-
-interface ReferenceData {
-  lifecycleStages: Array<{ id: string; name: string; display_name: string; color: string }>
-  sources: Array<{ id: string; name: string; display_name: string }>
-  tags: Array<{ id: string; name: string; color: string }>
 }
 
 export default function AddContactModal({ isOpen, onClose, onSuccess }: AddContactModalProps) {

@@ -5,19 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { getApiUrl } from '@/lib/utils/api'
 import AddContactModal from './AddContactModal'
 import ViewEditContactModal from './ViewEditContactModal'
-
-interface Contact {
-  id: string
-  email: string
-  first_name: string | null
-  last_name: string | null
-  full_name: string | null
-  lifecycle_stage: string
-  lead_score: number
-  created_at: string
-  last_activity_at: string | null
-  tags: string[]
-}
+import type { Contact } from '@/types'
 
 export default function ContactsContent() {
   const router = useRouter()
