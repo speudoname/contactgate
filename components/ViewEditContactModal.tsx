@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { getApiUrl } from '@/lib/utils/api'
+import EventsTimeline from './EventsTimeline'
 
 interface Contact {
   id: string
@@ -305,6 +306,13 @@ export default function ViewEditContactModal({ contact, isOpen, onClose, onUpdat
               {contact.last_activity_at && (
                 <p>Last Activity: {new Date(contact.last_activity_at).toLocaleString()}</p>
               )}
+            </div>
+          )}
+
+          {/* Events Timeline */}
+          {!isEditing && (
+            <div className="pt-4 border-t-2 border-gray-200">
+              <EventsTimeline contactId={contact.id} isOpen={isOpen} />
             </div>
           )}
 

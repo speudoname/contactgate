@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { getApiUrl } from '@/lib/utils/api'
 
 interface AddContactModalProps {
@@ -9,7 +9,18 @@ interface AddContactModalProps {
   onSuccess: () => void
 }
 
+interface ReferenceData {
+  lifecycleStages: Array<{ id: string; name: string; display_name: string; color: string }>
+  sources: Array<{ id: string; name: string; display_name: string }>
+  tags: Array<{ id: string; name: string; color: string }>
+}
+
 export default function AddContactModal({ isOpen, onClose, onSuccess }: AddContactModalProps) {
+  const [referenceData, setReferenceData] = useState<ReferenceData>({
+    lifecycleStages: [],
+    sources: [],
+    tags: []
+  })
   const [formData, setFormData] = useState({
     email: '',
     first_name: '',
@@ -24,6 +35,32 @@ export default function AddContactModal({ isOpen, onClose, onSuccess }: AddConta
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchReferenceData()
+    }
+  }, [isOpen])
+
+  const fetchReferenceData = async () => {
+    try {
+      const response = await fetch(getApiUrl('/api/reference-data'))
+      if (response.ok) {
+        const data = await response.json()
+        setReferenceData(data)
+        // Set default values if available
+        if (data.lifecycleStages.length > 0) {
+          setFormData(prev => ({ ...prev, lifecycle_stage: data.lifecycleStages[0].name }))
+        }
+        if (data.sources.length > 0) {
+          setFormData(prev => ({ ...prev, source: data.sources[0].name }))
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch reference data:', err)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -173,13 +210,11 @@ export default function AddContactModal({ isOpen, onClose, onSuccess }: AddConta
                 onChange={(e) => setFormData({ ...formData, lifecycle_stage: e.target.value })}
                 className="w-full px-3 py-2 border-2 border-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="subscriber">Subscriber</option>
-                <option value="lead">Lead</option>
-                <option value="marketing_qualified_lead">Marketing Qualified Lead</option>
-                <option value="sales_qualified_lead">Sales Qualified Lead</option>
-                <option value="opportunity">Opportunity</option>
-                <option value="customer">Customer</option>
-                <option value="evangelist">Evangelist</option>
+                {referenceData.lifecycleStages.map(stage => (
+                  <option key={stage.id} value={stage.name}>
+                    {stage.display_name}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -191,13 +226,47 @@ export default function AddContactModal({ isOpen, onClose, onSuccess }: AddConta
                 onChange={(e) => setFormData({ ...formData, source: e.target.value })}
                 className="w-full px-3 py-2 border-2 border-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="manual">Manual Entry</option>
-                <option value="website">Website</option>
-                <option value="referral">Referral</option>
-                <option value="social">Social Media</option>
-                <option value="email">Email Campaign</option>
-                <option value="import">Import</option>
+                {referenceData.sources.map(source => (
+                  <option key={source.id} value={source.name}>
+                    {source.display_name}
+                  </option>
+                ))}
               </select>
+            </div>
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tags
+            </label>
+            <div className="flex flex-wrap gap-2 p-3 border-2 border-black rounded-md min-h-[60px]">
+              {referenceData.tags.map(tag => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => {
+                    if (selectedTags.includes(tag.id)) {
+                      setSelectedTags(selectedTags.filter(t => t !== tag.id))
+                    } else {
+                      setSelectedTags([...selectedTags, tag.id])
+                    }
+                  }}
+                  className={`px-3 py-1 rounded-full text-sm font-medium border-2 transition-all ${
+                    selectedTags.includes(tag.id)
+                      ? 'border-black bg-blue-400 text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-black'
+                  }`}
+                  style={{
+                    backgroundColor: selectedTags.includes(tag.id) ? tag.color : undefined
+                  }}
+                >
+                  {tag.name}
+                </button>
+              ))}
+              {referenceData.tags.length === 0 && (
+                <span className="text-gray-400 text-sm">No tags configured</span>
+              )}
             </div>
           </div>
 
