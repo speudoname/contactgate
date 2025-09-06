@@ -39,9 +39,15 @@ END $$;
 -- Fix specific public functions we know exist and own
 DO $$
 BEGIN
-    -- Only alter functions if they exist and we have permission
-    ALTER FUNCTION IF EXISTS public.update_updated_at_column() 
-        SECURITY DEFINER SET search_path = public;
+    -- Check if function exists before altering
+    IF EXISTS (
+        SELECT 1 FROM pg_proc p 
+        JOIN pg_namespace n ON p.pronamespace = n.oid 
+        WHERE n.nspname = 'public' AND p.proname = 'update_updated_at_column'
+    ) THEN
+        ALTER FUNCTION public.update_updated_at_column() 
+            SECURITY DEFINER SET search_path = public;
+    END IF;
 EXCEPTION WHEN insufficient_privilege THEN
     NULL; -- Ignore if we don't have permission
 END $$;
@@ -49,8 +55,15 @@ END $$;
 -- Fix contacts schema functions if they exist and we own them
 DO $$
 BEGIN
-    ALTER FUNCTION IF EXISTS contacts.update_updated_at_column() 
-        SECURITY DEFINER SET search_path = contacts, public;
+    -- Check if function exists before altering
+    IF EXISTS (
+        SELECT 1 FROM pg_proc p 
+        JOIN pg_namespace n ON p.pronamespace = n.oid 
+        WHERE n.nspname = 'contacts' AND p.proname = 'update_updated_at_column'
+    ) THEN
+        ALTER FUNCTION contacts.update_updated_at_column() 
+            SECURITY DEFINER SET search_path = contacts, public;
+    END IF;
 EXCEPTION WHEN insufficient_privilege THEN
     NULL; -- Ignore if we don't have permission
 END $$;
