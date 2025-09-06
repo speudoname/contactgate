@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { getApiUrl } from '@/lib/utils/api'
 
 interface Contact {
   id: string
@@ -39,12 +40,12 @@ export default function ContactsContent() {
 
   const fetchContacts = async () => {
     try {
-      const response = await fetch('/api/contacts')
+      const response = await fetch(getApiUrl('/api/contacts'))
       
       if (!response.ok) {
         if (response.status === 401) {
-          // Token might be invalid, redirect to gateway
-          window.location.href = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3000'
+          // Token might be invalid, redirect to gateway login
+          window.location.href = '/login'
           return
         }
         throw new Error('Failed to fetch contacts')
@@ -108,12 +109,8 @@ export default function ContactsContent() {
             <div className="flex items-center gap-4">
               <button
                 onClick={() => {
-                  // In production, we're served from /contacts, so go back to dashboard
-                  if (process.env.NODE_ENV === 'production') {
-                    window.location.href = '/dashboard'
-                  } else {
-                    window.location.href = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3000'
-                  }
+                  // Always go to /dashboard (like PageNumGate does)
+                  window.location.href = '/dashboard'
                 }}
                 className="px-4 py-2 border-2 border-black text-sm font-medium rounded-md bg-white hover:bg-gray-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all"
               >
