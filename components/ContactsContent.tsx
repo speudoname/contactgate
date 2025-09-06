@@ -12,11 +12,13 @@ export default function ContactsContent() {
   const searchParams = useSearchParams()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
+  const [showRefreshNotification, setShowRefreshNotification] = useState(false)
 
   useEffect(() => {
     // Check if token is in URL params (first time coming from NumGate)
@@ -31,8 +33,26 @@ export default function ContactsContent() {
     fetchContacts()
   }, [searchParams, router])
 
-  const fetchContacts = async () => {
+  // Add keyboard shortcut for refresh
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // F5 or Cmd+R (Mac) or Ctrl+R (Windows/Linux)
+      if (e.key === 'F5' || ((e.metaKey || e.ctrlKey) && e.key === 'r')) {
+        e.preventDefault() // Prevent browser refresh
+        handleRefresh()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [])
+
+  const fetchContacts = async (isRefresh = false) => {
     try {
+      if (isRefresh) {
+        setRefreshing(true)
+      }
+      
       const apiUrl = getApiUrl('/api/contacts')
       console.log('Fetching contacts from:', apiUrl)
       
@@ -51,12 +71,24 @@ export default function ContactsContent() {
 
       const data = await response.json()
       setContacts(data.contacts || [])
+      setError('') // Clear any previous errors on successful fetch
+      
+      // Show notification only on manual refresh
+      if (isRefresh) {
+        setShowRefreshNotification(true)
+        setTimeout(() => setShowRefreshNotification(false), 2000)
+      }
     } catch (err) {
       console.error('Failed to fetch contacts:', err)
       setError(`Failed to load contacts: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
+  }
+
+  const handleRefresh = () => {
+    fetchContacts(true)
   }
 
   const handleAddContact = () => {
@@ -118,6 +150,15 @@ export default function ContactsContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Refresh Notification */}
+      {showRefreshNotification && (
+        <div className="fixed top-4 right-4 z-50 animate-fade-in">
+          <div className="bg-green-500 text-white px-4 py-2 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            ✅ Contacts refreshed
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b-2 border-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -127,6 +168,25 @@ export default function ContactsContent() {
               <p className="text-sm text-gray-600">{contacts.length} total contacts</p>
             </div>
             <div className="flex items-center gap-4">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className={`px-4 py-2 border-2 border-black text-sm font-medium rounded-md bg-blue-400 hover:bg-blue-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all ${
+                  refreshing ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                {refreshing ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Refreshing...
+                  </span>
+                ) : (
+                  '🔄 Refresh'
+                )}
+              </button>
               <button
                 onClick={() => {
                   // Always go to /dashboard (like PageNumGate does)
