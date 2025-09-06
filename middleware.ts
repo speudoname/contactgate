@@ -11,6 +11,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Check if request is coming from NumGate proxy
+  const isProxied = request.headers.get('x-proxied-from') === 'numgate'
+  
+  // If proxied and has auth headers from NumGate, trust them
+  if (isProxied) {
+    const tenantId = request.headers.get('x-tenant-id')
+    const userId = request.headers.get('x-user-id')
+    const userEmail = request.headers.get('x-user-email')
+    const userRole = request.headers.get('x-user-role')
+    
+    if (tenantId && userId) {
+      // Request is authenticated via proxy headers
+      // Pass through with the headers already set
+      return NextResponse.next()
+    }
+  }
+
   try {
     // Get token from various sources
     let token = request.nextUrl.searchParams.get('token')
