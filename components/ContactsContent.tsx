@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { getApiUrl } from '@/lib/utils/api'
 import AddContactModal from './AddContactModal'
 import ViewEditContactModal from './ViewEditContactModal'
+import EmailComposer from './EmailComposer'
+import EmailSettings from './EmailSettings'
 import type { Contact } from '@/types'
 
 export default function ContactsContent() {
@@ -19,6 +21,7 @@ export default function ContactsContent() {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [showRefreshNotification, setShowRefreshNotification] = useState(false)
+  const [activeTab, setActiveTab] = useState<'contacts' | 'email' | 'settings'>('contacts')
 
   useEffect(() => {
     // Check if token is in URL params (first time coming from NumGate)
@@ -209,26 +212,63 @@ export default function ContactsContent() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Search Bar */}
-        <div className="mb-6">
-          <input
-            type="text"
-            placeholder="Search contacts by name or email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 border-2 border-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setActiveTab('contacts')}
+            className={`px-4 py-2 border-2 border-black text-sm font-medium rounded-md transition-all ${
+              activeTab === 'contacts'
+                ? 'bg-yellow-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                : 'bg-white hover:bg-gray-50 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]'
+            }`}
+          >
+            📋 Contacts
+          </button>
+          <button
+            onClick={() => setActiveTab('email')}
+            className={`px-4 py-2 border-2 border-black text-sm font-medium rounded-md transition-all ${
+              activeTab === 'email'
+                ? 'bg-yellow-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                : 'bg-white hover:bg-gray-50 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]'
+            }`}
+          >
+            ✉️ Send Email
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`px-4 py-2 border-2 border-black text-sm font-medium rounded-md transition-all ${
+              activeTab === 'settings'
+                ? 'bg-yellow-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                : 'bg-white hover:bg-gray-50 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]'
+            }`}
+          >
+            ⚙️ Email Settings
+          </button>
         </div>
 
-        {/* Contacts List */}
-        {filteredContacts.length === 0 ? (
-          <div className="bg-white p-8 rounded-lg border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-center">
-            <p className="text-gray-600">
-              {searchTerm ? 'No contacts found matching your search.' : 'No contacts yet. Add your first contact!'}
-            </p>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
+        {/* Tab Content */}
+        {activeTab === 'contacts' ? (
+          <>
+            {/* Search Bar */}
+            <div className="mb-6">
+              <input
+                type="text"
+                placeholder="Search contacts by name or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Contacts List */}
+            {filteredContacts.length === 0 ? (
+              <div className="bg-white p-8 rounded-lg border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-center">
+                <p className="text-gray-600">
+                  {searchTerm ? 'No contacts found matching your search.' : 'No contacts yet. Add your first contact!'}
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
             <table className="min-w-full">
               <thead className="bg-gray-50 border-b-2 border-black">
                 <tr>
@@ -295,7 +335,24 @@ export default function ContactsContent() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+                </table>
+              </div>
+            )}
+          </>
+        ) : activeTab === 'email' ? (
+          /* Email Tab Content */
+          <div>
+            <EmailComposer 
+              onSuccess={() => {
+                // Optionally refresh or show a success message
+                console.log('Email sent successfully')
+              }}
+            />
+          </div>
+        ) : (
+          /* Settings Tab Content */
+          <div>
+            <EmailSettings />
           </div>
         )}
       </main>

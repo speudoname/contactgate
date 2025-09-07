@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 // Types
 export interface PostmarkSettings {
   postmark_id?: string
+  server_mode?: 'shared' | 'dedicated'
   transactional_server_id?: number
   transactional_server_token?: string
   transactional_stream_id?: string
@@ -17,8 +18,24 @@ export interface PostmarkSettings {
   default_from_email?: string
   default_from_name?: string
   default_reply_to?: string
+  custom_from_email?: string
+  custom_from_name?: string
+  custom_reply_to?: string
   domain_verified?: boolean
   account_token?: string
+  activation_status?: string
+}
+
+export interface SharedPostmarkConfig {
+  transactional_server_token: string
+  transactional_server_id?: number
+  transactional_stream_id: string
+  marketing_server_token: string
+  marketing_server_id?: number
+  marketing_stream_id: string
+  default_from_email: string
+  default_from_name: string
+  default_reply_to: string
 }
 
 export interface EmailOptions {
@@ -92,6 +109,8 @@ export class PostmarkService {
   private serverToken: string | null = null
   private tenantId: string | null = null
   private settings: PostmarkSettings | null = null
+  private sharedConfig: SharedPostmarkConfig | null = null
+  private mode: 'shared' | 'dedicated' = 'shared'
 
   constructor(tenantId?: string) {
     this.tenantId = tenantId || null
@@ -108,26 +127,87 @@ export class PostmarkService {
       .eq('tenant_id', tenantId)
       .single()
     
+    // If no settings exist, create default shared mode settings
     if (error || !settings) {
-      throw new Error(`No Postmark settings found for tenant ${tenantId}`)
+      const { data: newSettings, error: createError } = await supabaseAdmin
+        .from('postmark_settings')
+        .insert({
+          tenant_id: tenantId,
+          server_mode: 'shared',
+          activation_status: 'pending'
+        })
+        .select()
+        .single()
+      
+      if (createError || !newSettings) {
+        throw new Error(`Failed to create Postmark settings for tenant ${tenantId}`)
+      }
+      
+      this.settings = newSettings
+    } else {
+      this.settings = settings
     }
     
-    this.settings = settings
-    this.accountToken = settings.account_token || null
+    // Set mode
+    this.mode = this.settings.server_mode || 'shared'
     
-    // Default to transactional server token
-    this.serverToken = settings.transactional_server_token || null
+    // Initialize based on mode
+    if (this.mode === 'shared') {
+      await this.initializeSharedMode()
+    } else {
+      await this.initializeDedicatedMode()
+    }
+  }
+  
+  // Initialize shared mode configuration
+  private async initializeSharedMode(): Promise<void> {
+    // Fetch shared configuration
+    const { data: sharedConfig, error } = await supabaseAdmin
+      .from('shared_postmark_config')
+      .select('*')
+      .single()
+    
+    if (error || !sharedConfig) {
+      throw new Error('Shared Postmark configuration not found. Please contact support.')
+    }
+    
+    this.sharedConfig = sharedConfig
+    this.serverToken = sharedConfig.transactional_server_token
+    this.accountToken = process.env.POSTMARK_ACCOUNT_TOKEN || null
+  }
+  
+  // Initialize dedicated mode configuration
+  private async initializeDedicatedMode(): Promise<void> {
+    if (!this.settings) {
+      throw new Error('Settings not loaded')
+    }
+    
+    this.accountToken = this.settings.account_token || process.env.POSTMARK_ACCOUNT_TOKEN || null
+    this.serverToken = this.settings.transactional_server_token || null
+    
+    if (!this.serverToken) {
+      throw new Error('Dedicated servers not configured. Please activate email service.')
+    }
   }
 
   // Set which server to use (transactional or marketing)
   useServer(serverType: 'transactional' | 'marketing'): void {
-    if (!this.settings) {
+    if (!this.settings && !this.sharedConfig) {
       throw new Error('Service not initialized. Call initialize() first.')
     }
     
-    if (serverType === 'marketing') {
-      this.serverToken = this.settings.marketing_server_token || null
+    if (this.mode === 'shared') {
+      // Use shared server tokens
+      if (serverType === 'marketing' && this.sharedConfig) {
+        this.serverToken = this.sharedConfig.marketing_server_token
+      } else if (this.sharedConfig) {
+        this.serverToken = this.sharedConfig.transactional_server_token
+      }
     } else {
+      // Use dedicated server tokens
+      if (serverType === 'marketing') {
+        this.serverToken = this.settings?.marketing_server_token || null
+      } else {
       this.serverToken = this.settings.transactional_server_token || null
     }
     
@@ -144,15 +224,44 @@ export class PostmarkService {
       throw new Error('No server token configured')
     }
 
+    // Determine from email based on mode
+    let fromEmail: string
+    if (this.mode === 'shared') {
+      fromEmail = options.from || 
+                  this.settings?.custom_from_email || 
+                  this.sharedConfig?.default_from_email || 
+                  'share@share.komunate.com'
+    } else {
+      fromEmail = options.from || 
+                  this.settings?.custom_from_email || 
+                  this.settings?.default_from_email || 
+                  'noreply@komunate.com'
+    }
+
+    // Determine message stream based on mode and server type
+    let messageStream: string
+    if (this.mode === 'shared') {
+      // Check which server token we're using to determine stream
+      const isMarketing = this.serverToken === this.sharedConfig?.marketing_server_token
+      messageStream = options.messageStream || 
+                      (isMarketing ? this.sharedConfig?.marketing_stream_id : this.sharedConfig?.transactional_stream_id) || 
+                      (isMarketing ? 'marketing-shared' : 'transactional-shared')
+    } else {
+      const isMarketing = this.serverToken === this.settings?.marketing_server_token
+      messageStream = options.messageStream || 
+                      (isMarketing ? this.settings?.marketing_stream_id : this.settings?.transactional_stream_id) || 
+                      (isMarketing ? 'broadcasts' : 'outbound')
+    }
+
     const body: any = {
-      From: options.from || this.settings?.default_from_email,
+      From: fromEmail,
       To: Array.isArray(options.to) ? options.to.join(',') : options.to,
       Subject: options.subject,
       HtmlBody: options.htmlBody,
       TextBody: options.textBody,
       Tag: options.tag,
       Metadata: options.metadata,
-      MessageStream: options.messageStream || this.settings?.transactional_stream_id || 'outbound',
+      MessageStream: messageStream,
       TrackOpens: options.trackOpens ?? this.settings?.track_opens ?? false,
       TrackLinks: options.trackLinks || this.settings?.track_links || 'None'
     }
@@ -598,6 +707,273 @@ export class PostmarkService {
     const suppressedEmails = new Set(suppressions?.map(s => s.email.toLowerCase()) || [])
     
     return emails.filter(email => !suppressedEmails.has(email.toLowerCase()))
+  }
+
+  // ============= SERVER ACTIVATION =============
+
+  // Check if dedicated servers already exist for this tenant
+  async checkServersExist(postmarkId: string): Promise<{
+    transactionalExists: boolean
+    marketingExists: boolean
+    servers: any[]
+  }> {
+    if (!this.accountToken) {
+      throw new Error('Account token not configured')
+    }
+
+    try {
+      // List all servers
+      const response = await fetch(`${this.baseUrl}/servers`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'X-Postmark-Account-Token': this.accountToken
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to list servers: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      const servers = data.Servers || []
+
+      // Check for servers with the postmark_id prefix
+      const transactionalName = `${postmarkId}-transactional`
+      const marketingName = `${postmarkId}-marketing`
+
+      const transactionalServer = servers.find((s: any) => 
+        s.Name === transactionalName || s.Name.includes(transactionalName)
+      )
+      const marketingServer = servers.find((s: any) => 
+        s.Name === marketingName || s.Name.includes(marketingName)
+      )
+
+      return {
+        transactionalExists: !!transactionalServer,
+        marketingExists: !!marketingServer,
+        servers: [transactionalServer, marketingServer].filter(Boolean)
+      }
+    } catch (error) {
+      console.error('Error checking servers:', error)
+      throw error
+    }
+  }
+
+  // Create dedicated servers for tenant
+  async createDedicatedServers(postmarkId: string, tenantName: string): Promise<{
+    transactional: { id: number; token: string }
+    marketing: { id: number; token: string }
+  }> {
+    if (!this.accountToken) {
+      throw new Error('Account token not configured')
+    }
+
+    const results = {
+      transactional: { id: 0, token: '' },
+      marketing: { id: 0, token: '' }
+    }
+
+    // Create transactional server (no tracking)
+    const transactionalResponse = await fetch(`${this.baseUrl}/servers`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-Postmark-Account-Token': this.accountToken
+      },
+      body: JSON.stringify({
+        Name: `${postmarkId}-transactional`,
+        Color: 'blue',
+        TrackOpens: false,
+        TrackLinks: 'None',
+        InboundHookUrl: null,
+        BounceHookUrl: null,
+        OpenHookUrl: null,
+        ClickHookUrl: null,
+        DeliveryHookUrl: null
+      })
+    })
+
+    if (!transactionalResponse.ok) {
+      const error = await transactionalResponse.text()
+      throw new Error(`Failed to create transactional server: ${error}`)
+    }
+
+    const transactionalData = await transactionalResponse.json()
+    results.transactional.id = transactionalData.ID
+
+    // Get server token for transactional
+    const transactionalTokenResponse = await fetch(`${this.baseUrl}/servers/${transactionalData.ID}/tokens`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-Postmark-Account-Token': this.accountToken
+      },
+      body: JSON.stringify({
+        Name: `${postmarkId}-transactional-token`
+      })
+    })
+
+    if (transactionalTokenResponse.ok) {
+      const tokenData = await transactionalTokenResponse.json()
+      results.transactional.token = tokenData.Token
+    }
+
+    // Create marketing server (with tracking)
+    const marketingResponse = await fetch(`${this.baseUrl}/servers`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-Postmark-Account-Token': this.accountToken
+      },
+      body: JSON.stringify({
+        Name: `${postmarkId}-marketing`,
+        Color: 'green',
+        TrackOpens: true,
+        TrackLinks: 'HtmlAndText',
+        InboundHookUrl: null,
+        BounceHookUrl: null,
+        OpenHookUrl: null,
+        ClickHookUrl: null,
+        DeliveryHookUrl: null
+      })
+    })
+
+    if (!marketingResponse.ok) {
+      const error = await marketingResponse.text()
+      throw new Error(`Failed to create marketing server: ${error}`)
+    }
+
+    const marketingData = await marketingResponse.json()
+    results.marketing.id = marketingData.ID
+
+    // Get server token for marketing
+    const marketingTokenResponse = await fetch(`${this.baseUrl}/servers/${marketingData.ID}/tokens`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-Postmark-Account-Token': this.accountToken
+      },
+      body: JSON.stringify({
+        Name: `${postmarkId}-marketing-token`
+      })
+    })
+
+    if (marketingTokenResponse.ok) {
+      const tokenData = await marketingTokenResponse.json()
+      results.marketing.token = tokenData.Token
+    }
+
+    return results
+  }
+
+  // Activate dedicated email service for tenant
+  async activateEmailService(): Promise<void> {
+    if (!this.tenantId || !this.settings) {
+      throw new Error('Service not initialized')
+    }
+
+    // Get tenant details
+    const { data: tenant, error: tenantError } = await supabaseAdmin
+      .from('tenants')
+      .select('postmark_id, name, email_tier')
+      .eq('id', this.tenantId)
+      .single()
+
+    if (tenantError || !tenant || !tenant.postmark_id) {
+      throw new Error('Tenant not found or postmark_id not set')
+    }
+
+    // Check tier allows dedicated servers
+    if (tenant.email_tier === 'free') {
+      throw new Error('Free tier does not support dedicated servers. Please upgrade.')
+    }
+
+    // Update status to checking
+    await supabaseAdmin
+      .from('postmark_settings')
+      .update({ 
+        activation_status: 'checking',
+        activation_error: null 
+      })
+      .eq('tenant_id', this.tenantId)
+
+    try {
+      // Check if servers already exist
+      const { transactionalExists, marketingExists, servers } = await this.checkServersExist(tenant.postmark_id)
+
+      let transactionalServer = null
+      let marketingServer = null
+
+      if (transactionalExists && marketingExists) {
+        // Servers exist, just link them
+        transactionalServer = servers[0]
+        marketingServer = servers[1]
+        
+        // We need to get or create tokens for existing servers
+        // This would require additional API calls to get existing tokens
+        throw new Error('Linking existing servers not yet implemented. Please contact support.')
+      } else {
+        // Create new servers
+        await supabaseAdmin
+          .from('postmark_settings')
+          .update({ activation_status: 'activating' })
+          .eq('tenant_id', this.tenantId)
+
+        const newServers = await this.createDedicatedServers(tenant.postmark_id, tenant.name)
+
+        // Update settings with new server details
+        await supabaseAdmin
+          .from('postmark_settings')
+          .update({
+            server_mode: 'dedicated',
+            transactional_server_id: newServers.transactional.id,
+            transactional_server_token: newServers.transactional.token,
+            transactional_stream_id: 'outbound',
+            marketing_server_id: newServers.marketing.id,
+            marketing_server_token: newServers.marketing.token,
+            marketing_stream_id: 'broadcasts',
+            activation_status: 'active',
+            activated_at: new Date().toISOString(),
+            activation_error: null
+          })
+          .eq('tenant_id', this.tenantId)
+
+        // Update tenant activation timestamp
+        await supabaseAdmin
+          .from('tenants')
+          .update({ email_activated_at: new Date().toISOString() })
+          .eq('id', this.tenantId)
+      }
+    } catch (error) {
+      // Update with error status
+      await supabaseAdmin
+        .from('postmark_settings')
+        .update({
+          activation_status: 'failed',
+          activation_error: error instanceof Error ? error.message : 'Unknown error'
+        })
+        .eq('tenant_id', this.tenantId)
+
+      throw error
+    }
+  }
+
+  // Get current mode and activation status
+  getStatus(): {
+    mode: 'shared' | 'dedicated'
+    isActivated: boolean
+    canActivate: boolean
+  } {
+    return {
+      mode: this.mode,
+      isActivated: this.mode === 'dedicated' && this.settings?.activation_status === 'active',
+      canActivate: this.mode === 'shared' && !!this.settings?.postmark_id
+    }
   }
 }
 
