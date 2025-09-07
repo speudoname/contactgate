@@ -6,7 +6,7 @@ import { getApiUrl } from '@/lib/utils/api'
 import AddContactModal from './AddContactModal'
 import ViewEditContactModal from './ViewEditContactModal'
 import EmailComposer from './EmailComposer'
-import EmailSettings from './EmailSettings'
+import EmailSettingsNew from './EmailSettingsNew'
 import type { Contact } from '@/types'
 
 export default function ContactsContent() {
@@ -352,7 +352,7 @@ export default function ContactsContent() {
         ) : (
           /* Settings Tab Content */
           <div>
-            <EmailSettings />
+            <EmailSettingsNew />
           </div>
         )}
       </main>

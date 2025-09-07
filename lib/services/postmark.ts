@@ -168,11 +168,23 @@ export class PostmarkService {
       .single()
     
     if (error || !sharedConfig) {
-      throw new Error('Shared Postmark configuration not found. Please contact support.')
+      // If no shared config exists, create a placeholder
+      console.warn('Shared Postmark configuration not found. Using defaults.')
+      this.sharedConfig = {
+        transactional_server_token: process.env.POSTMARK_SERVER_TOKEN || '',
+        transactional_stream_id: 'outbound',
+        marketing_server_token: process.env.POSTMARK_SERVER_TOKEN || '',
+        marketing_stream_id: 'broadcasts',
+        default_from_email: 'share@share.komunate.com',
+        default_from_name: 'Komunate Platform',
+        default_reply_to: 'noreply@komunate.com'
+      }
+      this.serverToken = this.sharedConfig.transactional_server_token
+    } else {
+      this.sharedConfig = sharedConfig
+      this.serverToken = sharedConfig.transactional_server_token
     }
     
-    this.sharedConfig = sharedConfig
-    this.serverToken = sharedConfig.transactional_server_token
     this.accountToken = process.env.POSTMARK_ACCOUNT_TOKEN || null
   }
   
