@@ -66,9 +66,9 @@
 ### Phase 6: UI Components
 - [x] Basic EmailSettings component
 - [x] EmailComposer component
-- [ ] ServerStatusCard (show shared vs dedicated)
-- [ ] ActivationButton with pricing info
-- [ ] ServerManagement panel (dedicated only)
+- [x] ServerStatusCard (show shared vs dedicated)
+- [x] ActivationButton with pricing info
+- [x] ServerManagement panel (dedicated only)
 - [ ] DomainVerification interface
 - [ ] SignatureManagement interface
 

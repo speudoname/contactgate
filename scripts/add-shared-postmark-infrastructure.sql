@@ -87,10 +87,6 @@ CREATE TABLE IF NOT EXISTS contacts.email_signatures (
   UNIQUE(tenant_id, from_email)
 );
 
--- Add index for lookups
-CREATE INDEX IF NOT EXISTS idx_email_signatures_tenant ON contacts.email_signatures(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_email_signatures_default ON contacts.email_signatures(tenant_id, is_default) WHERE is_default = TRUE;
-
 -- 5. Update email_sends to track server mode
 ALTER TABLE contacts.email_sends 
 ADD COLUMN IF NOT EXISTS server_mode TEXT DEFAULT 'shared'
@@ -107,6 +103,10 @@ CREATE TABLE IF NOT EXISTS contacts.email_tier_limits (
   price_monthly DECIMAL(10,2) DEFAULT 0,
   features JSONB DEFAULT '[]'::jsonb
 );
+
+-- Add index for email_signatures
+CREATE INDEX IF NOT EXISTS idx_email_signatures_tenant ON contacts.email_signatures(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_email_signatures_default ON contacts.email_signatures(tenant_id, is_default) WHERE is_default = TRUE;
 
 -- Insert default tier configurations
 INSERT INTO contacts.email_tier_limits (tier, monthly_limit, daily_limit, can_use_dedicated, can_use_custom_domain, support_level, price_monthly, features) VALUES
@@ -239,7 +239,7 @@ CREATE POLICY "Shared config readable by all" ON contacts.shared_postmark_config
 
 -- Email signatures are tenant-specific
 CREATE POLICY "Tenants can manage their signatures" ON contacts.email_signatures
-  FOR ALL USING (tenant_id = auth.jwt() ->> 'tenant_id'::text);
+  FOR ALL USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
 
 -- Tier limits are readable by all
 CREATE POLICY "Tier limits readable by all" ON contacts.email_tier_limits
