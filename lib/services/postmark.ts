@@ -149,7 +149,7 @@ export class PostmarkService {
     }
     
     // Set mode
-    this.mode = this.settings.server_mode || 'shared'
+    this.mode = this.settings?.server_mode || 'shared'
     
     // Initialize based on mode
     if (this.mode === 'shared') {
@@ -220,7 +220,8 @@ export class PostmarkService {
       if (serverType === 'marketing') {
         this.serverToken = this.settings?.marketing_server_token || null
       } else {
-      this.serverToken = this.settings.transactional_server_token || null
+        this.serverToken = this.settings?.transactional_server_token || null
+      }
     }
     
     if (!this.serverToken) {
