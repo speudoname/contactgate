@@ -288,6 +288,7 @@ export default function ContactsContent() {
                 </p>
               </div>
             ) : (
+              <>
               <div className="bg-white rounded-lg border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
             <table className="min-w-full">
               <thead className="bg-gray-50 border-b-2 border-black">
@@ -384,6 +385,7 @@ export default function ContactsContent() {
                   </div>
                 </div>
               )}
+              </>
             )}
           </>
         ) : activeTab === 'email' ? (
