@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { getApiUrl } from '@/lib/utils/api'
 import AddContactModal from './AddContactModal'
 import ViewEditContactModal from './ViewEditContactModal'
-import EmailComposer from './EmailComposer'
 import EmailSettingsNew from './EmailSettingsNew'
 import type { Contact } from '@/types'
 
@@ -390,12 +389,9 @@ export default function ContactsContent() {
           </>
         ) : activeTab === 'email' ? (
           /* Email Tab Content */
-          <div>
-            <EmailComposer 
-              onSuccess={() => {
-                // Optionally refresh or show a success message
-              }}
-            />
+          <div className="bg-gray-50 rounded-lg p-6">
+            <h2 className="text-xl font-bold mb-4">Email Campaigns</h2>
+            <p className="text-gray-600">Email campaign functionality coming soon. Use the Settings tab to configure email service and send test emails.</p>
           </div>
         ) : (
           /* Settings Tab Content */

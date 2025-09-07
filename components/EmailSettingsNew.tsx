@@ -53,6 +53,8 @@ export default function EmailSettingsNew() {
   const [checkingServers, setCheckingServers] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [isProcessingQueue, setIsProcessingQueue] = useState(false)
+  const [processResult, setProcessResult] = useState<any>(null)
 
   useEffect(() => {
     fetchSettings()
@@ -164,39 +166,70 @@ export default function EmailSettingsNew() {
     const testEmail = prompt('Enter email address to send test to:')
     if (!testEmail) return
 
+    setError('')
+    setSuccess('')
+
     try {
-      const response = await fetch(getApiUrl('/api/email/send'), {
+      const response = await fetch(getApiUrl('/api/email/test'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           to: testEmail,
-          subject: `Test Email - ${settings.server_mode === 'shared' ? 'Shared' : 'Dedicated'} Mode`,
-          htmlBody: `
-            <h2>Test Email from ContactGate</h2>
-            <p>This is a test email sent from your ${settings.server_mode === 'shared' ? 'shared' : 'dedicated'} email server.</p>
-            <p><strong>Configuration:</strong></p>
-            <ul>
-              <li>Mode: ${settings.server_mode}</li>
-              <li>From: ${settings.server_mode === 'shared' ? settings.default_from_email : settings.custom_from_email}</li>
-              <li>Server: ${settings.server_mode === 'shared' ? 'defaultsharednumgate' : tenant.postmark_id}</li>
-            </ul>
-            <p>If you received this email, your configuration is working correctly!</p>
-          `,
-          serverType: 'transactional'
+          mode: settings.server_mode
         })
       })
 
       if (response.ok) {
-        setSuccess(`Test email sent to ${testEmail}`)
+        const data = await response.json()
+        setSuccess(`Test email queued! Check ${testEmail} in about 30 seconds. Queue ID: ${data.queue_id}`)
       } else {
         const data = await response.json()
-        setError(data.error || 'Failed to send test email')
+        setError(data.error || 'Failed to queue test email')
       }
     } catch (err) {
       console.error('Test email error:', err)
-      setError('Failed to send test email')
+      setError('Failed to queue test email')
+    }
+  }
+
+  const handleProcessQueue = async () => {
+    setIsProcessingQueue(true)
+    setProcessResult(null)
+
+    try {
+      const response = await fetch(getApiUrl('/api/email/process-queue'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const data = await response.json()
+      
+      if (response.ok) {
+        setProcessResult({
+          success: true,
+          message: 'Queue processed successfully',
+          details: data.result
+        })
+      } else {
+        setProcessResult({
+          success: false,
+          message: data.error || 'Failed to process queue',
+          details: data.details
+        })
+      }
+    } catch (err) {
+      console.error('Process queue error:', err)
+      setProcessResult({
+        success: false,
+        message: 'Failed to trigger queue processing',
+        details: err
+      })
+    } finally {
+      setIsProcessingQueue(false)
     }
   }
 
@@ -459,6 +492,52 @@ export default function EmailSettingsNew() {
       {success && (
         <div className="bg-green-50 border-2 border-green-500 text-green-700 p-4 rounded-md">
           {success}
+        </div>
+      )}
+
+      {/* Queue Processing Section (Dev Only) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-white p-6 rounded-lg border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <h3 className="text-xl font-bold mb-4">🚀 Email Queue Processing (Dev)</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Manually trigger email queue processing. In production, this runs automatically every 30 seconds via UptimeMonitor.
+          </p>
+          <button
+            onClick={handleProcessQueue}
+            disabled={isProcessingQueue}
+            className={`px-6 py-3 border-2 border-black font-medium rounded-md transition-all ${
+              isProcessingQueue
+                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                : 'bg-purple-400 hover:bg-purple-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]'
+            }`}
+          >
+            {isProcessingQueue ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Processing Queue...
+              </span>
+            ) : (
+              '⚡ Process Email Queue Now'
+            )}
+          </button>
+          {processResult && (
+            <div className={`mt-4 p-4 rounded-lg border-2 ${processResult.success ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500'}`}>
+              <p className={`font-medium ${processResult.success ? 'text-green-700' : 'text-red-700'}`}>
+                {processResult.message}
+              </p>
+              {processResult.details && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-sm text-gray-600">View Details</summary>
+                  <pre className="mt-2 text-xs overflow-auto bg-gray-100 p-2 rounded">
+                    {JSON.stringify(processResult.details, null, 2)}
+                  </pre>
+                </details>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
