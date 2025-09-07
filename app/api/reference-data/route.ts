@@ -1,18 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  },
-  db: {
-    schema: 'contacts'
-  }
-})
+import { supabaseContacts } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,21 +11,21 @@ export async function GET(request: NextRequest) {
 
     // Fetch all reference data in parallel
     const [lifecycleStages, sources, tags] = await Promise.all([
-      supabase
+      supabaseContacts
         .from('lifecycle_stages')
         .select('*')
         .eq('tenant_id', tenantId)
         .eq('is_active', true)
         .order('order_index'),
       
-      supabase
+      supabaseContacts
         .from('sources')
         .select('*')
         .eq('tenant_id', tenantId)
         .eq('is_active', true)
         .order('display_name'),
       
-      supabase
+      supabaseContacts
         .from('tag_definitions')
         .select('*')
         .eq('tenant_id', tenantId)

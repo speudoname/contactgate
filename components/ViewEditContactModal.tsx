@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { getApiUrl } from '@/lib/utils/api'
+import { useReferenceData } from './ReferenceDataContext'
 import EventsTimeline from './EventsTimeline'
 import type { Contact, ReferenceData } from '@/types'
 
@@ -13,47 +14,21 @@ interface ViewEditContactModalProps {
 }
 
 export default function ViewEditContactModal({ contact, isOpen, onClose, onUpdate }: ViewEditContactModalProps) {
+  const { referenceData } = useReferenceData()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
     email: contact.email || '',
     first_name: contact.first_name || '',
     last_name: contact.last_name || '',
     phone: contact.phone || '',
-    company: contact.company || '',
-    job_title: contact.job_title || '',
-    website: contact.website || '',
     lifecycle_stage: contact.lifecycle_stage || 'subscriber',
     source: contact.source || 'manual',
     email_opt_in: contact.email_opt_in || false,
-    sms_opt_in: contact.sms_opt_in || false,
     notes: contact.notes || ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>(contact.tags || [])
-  const [referenceData, setReferenceData] = useState<ReferenceData>({
-    lifecycleStages: [],
-    sources: [],
-    tags: []
-  })
-
-  useEffect(() => {
-    if (isOpen) {
-      fetchReferenceData()
-    }
-  }, [isOpen])
-
-  const fetchReferenceData = async () => {
-    try {
-      const response = await fetch(getApiUrl('/api/reference-data'))
-      if (response.ok) {
-        const data = await response.json()
-        setReferenceData(data)
-      }
-    } catch (err) {
-      console.error('Failed to fetch reference data:', err)
-    }
-  }
 
   const handleSave = async () => {
     setLoading(true)
@@ -88,13 +63,9 @@ export default function ViewEditContactModal({ contact, isOpen, onClose, onUpdat
       first_name: contact.first_name || '',
       last_name: contact.last_name || '',
       phone: contact.phone || '',
-      company: contact.company || '',
-      job_title: contact.job_title || '',
-      website: contact.website || '',
       lifecycle_stage: contact.lifecycle_stage || 'subscriber',
       source: contact.source || 'manual',
       email_opt_in: contact.email_opt_in || false,
-      sms_opt_in: contact.sms_opt_in || false,
       notes: contact.notes || ''
     })
     setIsEditing(false)
@@ -196,57 +167,6 @@ export default function ViewEditContactModal({ contact, isOpen, onClose, onUpdat
             </div>
           </div>
 
-          {/* Professional Information */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Company
-              </label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={formData.company}
-                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              ) : (
-                <p className="px-3 py-2">{contact.company || '-'}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Job Title
-              </label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={formData.job_title}
-                  onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              ) : (
-                <p className="px-3 py-2">{contact.job_title || '-'}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Website */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Website
-            </label>
-            {isEditing ? (
-              <input
-                type="url"
-                value={formData.website}
-                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                className="w-full px-3 py-2 border-2 border-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="https://example.com"
-              />
-            ) : (
-              <p className="px-3 py-2">{contact.website || '-'}</p>
-            )}
-          </div>
 
           {/* CRM Fields */}
           <div className="grid grid-cols-2 gap-4">
@@ -414,26 +334,6 @@ export default function ViewEditContactModal({ contact, isOpen, onClose, onUpdat
               ) : (
                 <p className="text-sm text-gray-700">
                   Email opt-in: {contact.email_opt_in ? 'Yes' : 'No'}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center">
-              {isEditing ? (
-                <>
-                  <input
-                    type="checkbox"
-                    id="sms_opt_in"
-                    checked={formData.sms_opt_in}
-                    onChange={(e) => setFormData({ ...formData, sms_opt_in: e.target.checked })}
-                    className="h-4 w-4 border-2 border-black rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  <label htmlFor="sms_opt_in" className="ml-2 text-sm text-gray-700">
-                    SMS marketing opt-in
-                  </label>
-                </>
-              ) : (
-                <p className="text-sm text-gray-700">
-                  SMS opt-in: {contact.sms_opt_in ? 'Yes' : 'No'}
                 </p>
               )}
             </div>

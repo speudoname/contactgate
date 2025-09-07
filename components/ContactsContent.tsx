@@ -22,6 +22,16 @@ export default function ContactsContent() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [showRefreshNotification, setShowRefreshNotification] = useState(false)
   const [activeTab, setActiveTab] = useState<'contacts' | 'email' | 'settings'>('contacts')
+  
+  // Pagination state
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false
+  })
 
   useEffect(() => {
     // Check if token is in URL params (first time coming from NumGate)
@@ -50,14 +60,13 @@ export default function ContactsContent() {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [])
 
-  const fetchContacts = async (isRefresh = false) => {
+  const fetchContacts = async (isRefresh = false, page = 1) => {
     try {
       if (isRefresh) {
         setRefreshing(true)
       }
       
-      const apiUrl = getApiUrl('/api/contacts')
-      console.log('Fetching contacts from:', apiUrl)
+      const apiUrl = getApiUrl(`/api/contacts?page=${page}&limit=${pagination.limit}`)
       
       const response = await fetch(apiUrl)
       
@@ -73,7 +82,18 @@ export default function ContactsContent() {
       }
 
       const data = await response.json()
-      setContacts(data.contacts || [])
+      
+      // Handle both old and new response formats for backward compatibility
+      const contacts = data.contacts || data.data?.contacts || []
+      const pagination = data.pagination || data.data?.pagination
+      
+      setContacts(contacts)
+      
+      // Handle pagination metadata if available
+      if (pagination) {
+        setPagination(pagination)
+      }
+      
       setError('') // Clear any previous errors on successful fetch
       
       // Show notification only on manual refresh
@@ -337,6 +357,33 @@ export default function ContactsContent() {
               </tbody>
                 </table>
               </div>
+              
+              {pagination.totalPages > 1 && (
+                <div className="bg-white px-6 py-4 border-t-2 border-black flex items-center justify-between">
+                  <div className="text-sm text-gray-700">
+                    Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} contacts
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => fetchContacts(false, pagination.page - 1)}
+                      disabled={!pagination.hasPrevPage}
+                      className="px-3 py-1 border-2 border-black text-sm font-medium rounded-md bg-white hover:bg-gray-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                    >
+                      Previous
+                    </button>
+                    <span className="px-3 py-1 text-sm font-medium">
+                      Page {pagination.page} of {pagination.totalPages}
+                    </span>
+                    <button
+                      onClick={() => fetchContacts(false, pagination.page + 1)}
+                      disabled={!pagination.hasNextPage}
+                      className="px-3 py-1 border-2 border-black text-sm font-medium rounded-md bg-white hover:bg-gray-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             )}
           </>
         ) : activeTab === 'email' ? (
@@ -345,7 +392,6 @@ export default function ContactsContent() {
             <EmailComposer 
               onSuccess={() => {
                 // Optionally refresh or show a success message
-                console.log('Email sent successfully')
               }}
             />
           </div>

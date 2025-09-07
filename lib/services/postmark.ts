@@ -44,40 +44,12 @@ export interface EmailOptions {
   subject: string
   htmlBody?: string
   textBody?: string
-  cc?: string | string[]
-  bcc?: string | string[]
   replyTo?: string
   tag?: string
   metadata?: Record<string, any>
-  attachments?: EmailAttachment[]
   trackOpens?: boolean
   trackLinks?: string
   messageStream?: string
-  headers?: Record<string, string>
-}
-
-export interface EmailAttachment {
-  name: string
-  content: string // Base64 encoded
-  contentType: string
-}
-
-export interface EmailTemplate {
-  templateId?: number
-  templateAlias?: string
-  templateModel: Record<string, any>
-  from: string
-  to: string | string[]
-  cc?: string | string[]
-  bcc?: string | string[]
-  replyTo?: string
-  tag?: string
-  metadata?: Record<string, any>
-  messageStream?: string
-}
-
-export interface BatchEmail extends EmailOptions {
-  // Each email in batch can have unique properties
 }
 
 export interface PostmarkResponse {
@@ -280,11 +252,7 @@ export class PostmarkService {
     }
 
     // Add optional fields
-    if (options.cc) body.Cc = Array.isArray(options.cc) ? options.cc.join(',') : options.cc
-    if (options.bcc) body.Bcc = Array.isArray(options.bcc) ? options.bcc.join(',') : options.bcc
     if (options.replyTo) body.ReplyTo = options.replyTo
-    if (options.attachments) body.Attachments = options.attachments
-    if (options.headers) body.Headers = Object.entries(options.headers).map(([Name, Value]) => ({ Name, Value }))
 
     try {
       const response = await fetch(`${this.baseUrl}/email`, {
@@ -324,131 +292,7 @@ export class PostmarkService {
     }
   }
 
-  // Send batch emails (up to 500)
-  async sendBatch(emails: BatchEmail[]): Promise<PostmarkResponse[]> {
-    if (!this.serverToken) {
-      throw new Error('No server token configured')
-    }
 
-    if (emails.length > 500) {
-      throw new Error('Batch size cannot exceed 500 emails')
-    }
-
-    const batch = emails.map(email => ({
-      From: email.from || this.settings?.default_from_email,
-      To: Array.isArray(email.to) ? email.to.join(',') : email.to,
-      Subject: email.subject,
-      HtmlBody: email.htmlBody,
-      TextBody: email.textBody,
-      Tag: email.tag,
-      Metadata: email.metadata,
-      MessageStream: email.messageStream || this.settings?.marketing_stream_id || 'broadcasts',
-      TrackOpens: email.trackOpens ?? this.settings?.track_opens ?? true,
-      TrackLinks: email.trackLinks || this.settings?.track_links || 'HtmlAndText',
-      Cc: email.cc ? (Array.isArray(email.cc) ? email.cc.join(',') : email.cc) : undefined,
-      Bcc: email.bcc ? (Array.isArray(email.bcc) ? email.bcc.join(',') : email.bcc) : undefined,
-      ReplyTo: email.replyTo,
-      Attachments: email.attachments
-    }))
-
-    try {
-      const response = await fetch(`${this.baseUrl}/email/batch`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'X-Postmark-Server-Token': this.serverToken
-        },
-        body: JSON.stringify(batch)
-      })
-
-      const results = await response.json()
-      
-      // Log each send
-      for (const result of results) {
-        if (result.ErrorCode === 0) {
-          const emailIndex = results.indexOf(result)
-          await this.logEmailSend({
-            tenant_id: this.tenantId!,
-            message_id: result.MessageID,
-            to_email: result.To,
-            subject: emails[emailIndex].subject,
-            status: 'sent',
-            sent_at: result.SubmittedAt,
-            server_type: 'marketing',
-            message_stream: emails[emailIndex].messageStream || 'broadcasts',
-            tag: emails[emailIndex].tag,
-            metadata: emails[emailIndex].metadata
-          })
-        }
-      }
-
-      return results
-    } catch (error) {
-      console.error('Failed to send batch emails:', error)
-      throw error
-    }
-  }
-
-  // Send email with template
-  async sendWithTemplate(options: EmailTemplate): Promise<PostmarkResponse> {
-    if (!this.serverToken) {
-      throw new Error('No server token configured')
-    }
-
-    const body: any = {
-      TemplateId: options.templateId,
-      TemplateAlias: options.templateAlias,
-      TemplateModel: options.templateModel,
-      From: options.from || this.settings?.default_from_email,
-      To: Array.isArray(options.to) ? options.to.join(',') : options.to,
-      Tag: options.tag,
-      Metadata: options.metadata,
-      MessageStream: options.messageStream || this.settings?.transactional_stream_id || 'outbound'
-    }
-
-    // Add optional fields
-    if (options.cc) body.Cc = Array.isArray(options.cc) ? options.cc.join(',') : options.cc
-    if (options.bcc) body.Bcc = Array.isArray(options.bcc) ? options.bcc.join(',') : options.bcc
-    if (options.replyTo) body.ReplyTo = options.replyTo
-
-    try {
-      const response = await fetch(`${this.baseUrl}/email/withTemplate`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'X-Postmark-Server-Token': this.serverToken
-        },
-        body: JSON.stringify(body)
-      })
-
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(`Postmark Error ${data.ErrorCode}: ${data.Message}`)
-      }
-
-      // Log the send
-      await this.logEmailSend({
-        tenant_id: this.tenantId!,
-        message_id: data.MessageID,
-        to_email: options.to.toString(),
-        subject: data.Subject || 'Template Email',
-        status: 'sent',
-        sent_at: data.SubmittedAt,
-        server_type: this.serverToken === this.settings?.marketing_server_token ? 'marketing' : 'transactional',
-        message_stream: body.MessageStream,
-        tag: options.tag,
-        metadata: options.metadata
-      })
-
-      return data
-    } catch (error) {
-      console.error('Failed to send template email:', error)
-      throw error
-    }
-  }
 
   // ============= BOUNCE MANAGEMENT =============
 
@@ -657,7 +501,6 @@ export class PostmarkService {
     message_stream: string
     tag?: string
     metadata?: any
-    campaign_id?: string
     contact_id?: string
   }): Promise<void> {
     try {

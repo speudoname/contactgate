@@ -1,18 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  },
-  db: {
-    schema: 'contacts'
-  }
-})
+import { supabaseContacts } from '@/lib/supabase/server'
 
 export async function GET(
   request: NextRequest,
@@ -27,7 +14,7 @@ export async function GET(
     }
 
     // Fetch events for this contact
-    const { data: events, error } = await supabase
+    const { data: events, error } = await supabaseContacts
       .from('events')
       .select('*')
       .eq('contact_id', id)

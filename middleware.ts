@@ -5,8 +5,7 @@ export async function middleware(request: NextRequest) {
   // Allow public assets and API routes that don't need auth
   if (
     request.nextUrl.pathname.startsWith('/_next') ||
-    request.nextUrl.pathname.startsWith('/favicon.ico') ||
-    request.nextUrl.pathname.startsWith('/api/health')
+    request.nextUrl.pathname.startsWith('/favicon.ico')
   ) {
     return NextResponse.next()
   }
@@ -47,7 +46,6 @@ export async function middleware(request: NextRequest) {
     }
 
     if (!token) {
-      console.log('No token found in request')
       // Redirect to gateway login instead of returning JSON error
       const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://numgate.vercel.app'
       return NextResponse.redirect(new URL('/login', gatewayUrl))

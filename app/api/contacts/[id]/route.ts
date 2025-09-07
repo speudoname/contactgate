@@ -1,18 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  },
-  db: {
-    schema: 'contacts'
-  }
-})
+import { supabaseContacts } from '@/lib/supabase/server'
 
 export async function GET(
   request: NextRequest,
@@ -26,7 +13,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized - No tenant ID' }, { status: 401 })
     }
 
-    const { data: contact, error } = await supabase
+    const { data: contact, error } = await supabaseContacts
       .from('contacts')
       .select('*')
       .eq('id', id)
@@ -60,15 +47,13 @@ export async function PUT(
     const body = await request.json()
     
     // Update contact in contacts schema
-    const { data: contact, error } = await supabase
+    const { data: contact, error } = await supabaseContacts
       .from('contacts')
       .update({
         email: body.email,
         first_name: body.first_name,
         last_name: body.last_name,
         phone: body.phone,
-        company: body.company,
-        job_title: body.job_title,
         lifecycle_stage: body.lifecycle_stage,
         source: body.source,
         email_opt_in: body.email_opt_in,
@@ -90,7 +75,7 @@ export async function PUT(
     }
 
     // Log event in contacts schema
-    await supabase
+    await supabaseContacts
       .from('events')
       .insert({
         tenant_id: tenantId,
@@ -125,7 +110,7 @@ export async function DELETE(
     }
 
     // Log deletion event before deleting
-    await supabase
+    await supabaseContacts
       .from('events')
       .insert({
         tenant_id: tenantId,
@@ -139,7 +124,7 @@ export async function DELETE(
       })
 
     // Delete contact from contacts schema
-    const { error } = await supabase
+    const { error } = await supabaseContacts
       .from('contacts')
       .delete()
       .eq('id', id)

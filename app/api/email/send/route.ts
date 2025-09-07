@@ -25,16 +25,11 @@ export async function POST(request: NextRequest) {
       from,
       fromName,
       replyTo,
-      cc,
-      bcc,
       tag,
       metadata,
       serverType = 'transactional',
       trackOpens,
-      trackLinks,
-      templateId,
-      templateAlias,
-      templateModel
+      trackLinks
     } = body
 
     // Validate required fields
@@ -45,9 +40,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!htmlBody && !textBody && !templateId && !templateAlias) {
+    if (!htmlBody && !textBody) {
       return NextResponse.json(
-        { error: 'Must provide either htmlBody, textBody, or template' },
+        { error: 'Must provide either htmlBody or textBody' },
         { status: 400 }
       )
     }
@@ -83,46 +78,23 @@ export async function POST(request: NextRequest) {
       ? `${fromName} <${fromEmail}>`
       : fromEmail
 
-    let result
-
-    // Send with template or regular email
-    if (templateId || templateAlias) {
-      result = await postmark.sendWithTemplate({
-        templateId,
-        templateAlias,
-        templateModel: templateModel || {},
-        from: fromAddress,
-        to,
-        cc,
-        bcc,
-        replyTo,
-        tag,
-        metadata: {
-          ...metadata,
-          tenant_id: tenantId,
-          user_id: userId
-        }
-      })
-    } else {
-      result = await postmark.sendEmail({
-        from: fromAddress,
-        to,
-        subject,
-        htmlBody,
-        textBody,
-        cc,
-        bcc,
-        replyTo,
-        tag,
-        metadata: {
-          ...metadata,
-          tenant_id: tenantId,
-          user_id: userId
-        },
-        trackOpens: trackOpens ?? (serverType === 'marketing'),
-        trackLinks: trackLinks ?? (serverType === 'marketing' ? 'HtmlAndText' : 'None')
-      })
-    }
+    // Send email
+    const result = await postmark.sendEmail({
+      from: fromAddress,
+      to,
+      subject,
+      htmlBody,
+      textBody,
+      replyTo,
+      tag,
+      metadata: {
+        ...metadata,
+        tenant_id: tenantId,
+        user_id: userId
+      },
+      trackOpens: trackOpens ?? (serverType === 'marketing'),
+      trackLinks: trackLinks ?? (serverType === 'marketing' ? 'HtmlAndText' : 'None')
+    })
 
     // Log activity to contacts.events
     if (Array.isArray(to)) {

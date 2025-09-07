@@ -1,60 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  },
-  db: {
-    schema: 'contacts'
-  }
-})
+import { supabaseContacts } from '@/lib/supabase/server'
+import { ApiResponse } from '@/lib/utils/api-response'
 
 export async function GET(request: NextRequest) {
   try {
-    // Log all headers for debugging
-    console.log('API Headers:', {
-      'x-tenant-id': request.headers.get('x-tenant-id'),
-      'x-user-id': request.headers.get('x-user-id'),
-      'x-proxied-from': request.headers.get('x-proxied-from'),
-      'x-auth-token': request.headers.get('x-auth-token')
-    })
-    
     // Get tenant context from headers (set by middleware)
     const tenantId = request.headers.get('x-tenant-id')
     
     if (!tenantId) {
       console.error('No tenant ID in headers')
-      return NextResponse.json({ error: 'Unauthorized - No tenant ID' }, { status: 401 })
+      return ApiResponse.unauthorized('No tenant ID provided')
     }
-
-    console.log('Fetching contacts for tenant:', tenantId)
     
-    // Fetch contacts from the contacts schema
-    const { data: contacts, error } = await supabase
-      .from('contacts')  // Now uses contacts schema by default due to db config
-      .select('*')
+    // Parse pagination parameters with sensible defaults
+    const url = new URL(request.url)
+    const page = parseInt(url.searchParams.get('page') || '1')
+    const limit = parseInt(url.searchParams.get('limit') || '50')
+    const offset = (page - 1) * limit
+    
+    // Validate pagination parameters
+    if (page < 1 || limit < 1 || limit > 100) {
+      return ApiResponse.badRequest(
+        'Invalid pagination parameters',
+        'Page must be >= 1, limit must be 1-100'
+      )
+    }
+    
+    // Fetch contacts with pagination
+    const { data: contacts, error, count } = await supabaseContacts
+      .from('contacts')
+      .select('*', { count: 'exact' })
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
 
     if (error) {
       console.error('Error fetching contacts:', error)
-      return NextResponse.json({ 
-        error: 'Database error', 
-        details: error.message,
-        code: error.code 
-      }, { status: 500 })
+      return ApiResponse.internalError('Failed to fetch contacts', error.message)
     }
 
-    console.log('Found contacts:', contacts?.length || 0)
-    return NextResponse.json({ contacts: contacts || [] })
+    // Calculate pagination metadata
+    const totalPages = Math.ceil((count || 0) / limit)
+    const hasNextPage = page < totalPages
+    const hasPrevPage = page > 1
+
+    return ApiResponse.success(
+      { contacts: contacts || [] },
+      undefined,
+      {
+        page,
+        limit,
+        total: count || 0,
+        totalPages,
+        hasNextPage,
+        hasPrevPage
+      }
+    )
   } catch (error) {
     console.error('Error in contacts API:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return ApiResponse.internalError('Internal server error')
   }
 }
 
@@ -65,13 +69,13 @@ export async function POST(request: NextRequest) {
     const userId = request.headers.get('x-user-id')
     
     if (!tenantId || !userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiResponse.unauthorized('Missing tenant or user ID')
     }
 
     const body = await request.json()
     
     // Create new contact in the contacts schema
-    const { data: contact, error } = await supabase
+    const { data: contact, error } = await supabaseContacts
       .from('contacts')
       .insert({
         tenant_id: tenantId,
@@ -79,8 +83,6 @@ export async function POST(request: NextRequest) {
         first_name: body.first_name,
         last_name: body.last_name,
         phone: body.phone,
-        company: body.company,
-        job_title: body.job_title,
         lifecycle_stage: body.lifecycle_stage || 'subscriber',
         source: body.source || 'manual',
         email_opt_in: body.email_opt_in || false,
@@ -91,11 +93,11 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error creating contact:', error)
-      return NextResponse.json({ error: 'Failed to create contact' }, { status: 500 })
+      return ApiResponse.internalError('Failed to create contact', error.message)
     }
 
     // Log event in contacts schema
-    await supabase
+    await supabaseContacts
       .from('events')  // Now uses contacts schema by default
       .insert({
         tenant_id: tenantId,
@@ -108,9 +110,9 @@ export async function POST(request: NextRequest) {
         }
       })
 
-    return NextResponse.json({ contact })
+    return ApiResponse.success({ contact }, 'Contact created successfully')
   } catch (error) {
     console.error('Error in contacts API:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return ApiResponse.internalError('Internal server error')
   }
 }

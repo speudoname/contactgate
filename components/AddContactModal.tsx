@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { getApiUrl } from '@/lib/utils/api'
+import { useReferenceData } from './ReferenceDataContext'
 import type { ReferenceData } from '@/types'
 
 interface AddContactModalProps {
@@ -11,23 +12,15 @@ interface AddContactModalProps {
 }
 
 export default function AddContactModal({ isOpen, onClose, onSuccess }: AddContactModalProps) {
-  const [referenceData, setReferenceData] = useState<ReferenceData>({
-    lifecycleStages: [],
-    sources: [],
-    tags: []
-  })
+  const { referenceData } = useReferenceData()
   const [formData, setFormData] = useState({
     email: '',
     first_name: '',
     last_name: '',
     phone: '',
-    company: '',
-    job_title: '',
-    website: '',
     lifecycle_stage: 'subscriber',
     source: 'manual',
     email_opt_in: false,
-    sms_opt_in: false,
     notes: ''
   })
   const [loading, setLoading] = useState(false)
@@ -35,29 +28,15 @@ export default function AddContactModal({ isOpen, onClose, onSuccess }: AddConta
   const [selectedTags, setSelectedTags] = useState<string[]>([])
 
   useEffect(() => {
-    if (isOpen) {
-      fetchReferenceData()
+    if (isOpen && referenceData.lifecycleStages.length > 0) {
+      // Set default values from cached reference data
+      setFormData(prev => ({
+        ...prev,
+        lifecycle_stage: referenceData.lifecycleStages[0]?.name || 'subscriber',
+        source: referenceData.sources[0]?.name || 'manual'
+      }))
     }
-  }, [isOpen])
-
-  const fetchReferenceData = async () => {
-    try {
-      const response = await fetch(getApiUrl('/api/reference-data'))
-      if (response.ok) {
-        const data = await response.json()
-        setReferenceData(data)
-        // Set default values if available
-        if (data.lifecycleStages.length > 0) {
-          setFormData(prev => ({ ...prev, lifecycle_stage: data.lifecycleStages[0].name }))
-        }
-        if (data.sources.length > 0) {
-          setFormData(prev => ({ ...prev, source: data.sources[0].name }))
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch reference data:', err)
-    }
-  }
+  }, [isOpen, referenceData])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -84,13 +63,9 @@ export default function AddContactModal({ isOpen, onClose, onSuccess }: AddConta
         first_name: '',
         last_name: '',
         phone: '',
-        company: '',
-        job_title: '',
-        website: '',
         lifecycle_stage: 'subscriber',
         source: 'manual',
         email_opt_in: false,
-        sms_opt_in: false,
         notes: ''
       })
       
@@ -172,45 +147,6 @@ export default function AddContactModal({ isOpen, onClose, onSuccess }: AddConta
             </div>
           </div>
 
-          {/* Professional Information */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Company
-              </label>
-              <input
-                type="text"
-                value={formData.company}
-                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                className="w-full px-3 py-2 border-2 border-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Job Title
-              </label>
-              <input
-                type="text"
-                value={formData.job_title}
-                onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
-                className="w-full px-3 py-2 border-2 border-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Website */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Website
-            </label>
-            <input
-              type="url"
-              value={formData.website}
-              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-              className="w-full px-3 py-2 border-2 border-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="https://example.com"
-            />
-          </div>
 
           {/* CRM Fields */}
           <div className="grid grid-cols-2 gap-4">
@@ -308,18 +244,6 @@ export default function AddContactModal({ isOpen, onClose, onSuccess }: AddConta
               />
               <label htmlFor="email_opt_in" className="ml-2 text-sm text-gray-700">
                 Email marketing opt-in
-              </label>
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="sms_opt_in"
-                checked={formData.sms_opt_in}
-                onChange={(e) => setFormData({ ...formData, sms_opt_in: e.target.checked })}
-                className="h-4 w-4 border-2 border-black rounded focus:ring-2 focus:ring-blue-500"
-              />
-              <label htmlFor="sms_opt_in" className="ml-2 text-sm text-gray-700">
-                SMS marketing opt-in
               </label>
             </div>
           </div>
