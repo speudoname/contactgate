@@ -60,13 +60,13 @@ export default function ContactsContent() {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [])
 
-  const fetchContacts = async (isRefresh = false, page = 1) => {
+  const fetchContacts = async (isRefresh = false, page = 1, limit = 50) => {
     try {
       if (isRefresh) {
         setRefreshing(true)
       }
       
-      const apiUrl = getApiUrl(`/api/contacts?page=${page}&limit=${pagination.limit}`)
+      const apiUrl = getApiUrl(`/api/contacts?page=${page}&limit=${limit}`)
       
       const response = await fetch(apiUrl)
       
@@ -366,7 +366,7 @@ export default function ContactsContent() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => fetchContacts(false, pagination.page - 1)}
+                      onClick={() => fetchContacts(false, pagination.page - 1, pagination.limit)}
                       disabled={!pagination.hasPrevPage}
                       className="px-3 py-1 border-2 border-black text-sm font-medium rounded-md bg-white hover:bg-gray-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                     >
@@ -376,7 +376,7 @@ export default function ContactsContent() {
                       Page {pagination.page} of {pagination.totalPages}
                     </span>
                     <button
-                      onClick={() => fetchContacts(false, pagination.page + 1)}
+                      onClick={() => fetchContacts(false, pagination.page + 1, pagination.limit)}
                       disabled={!pagination.hasNextPage}
                       className="px-3 py-1 border-2 border-black text-sm font-medium rounded-md bg-white hover:bg-gray-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                     >
