@@ -19,12 +19,15 @@ interface EmailQueueItem {
   status: string
   server_mode: 'shared' | 'dedicated'
   message_stream?: string
+  email_type?: 'transactional' | 'marketing'
 }
 
 interface PostmarkSettings {
   tenant_id: string
   server_mode: 'shared' | 'dedicated'
-  dedicated_api_token?: string
+  shared_server_token?: string
+  dedicated_transactional_token?: string
+  dedicated_marketing_token?: string
   from_email: string
   from_name?: string
 }
@@ -41,25 +44,18 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Get Postmark API tokens from environment
-    const sharedPostmarkToken = Deno.env.get('SHARED_POSTMARK_API_TOKEN')
-    
-    if (!sharedPostmarkToken) {
-      throw new Error('SHARED_POSTMARK_API_TOKEN not configured')
-    }
-
     // Process transactional emails
     const transactionalResults = await processQueue(
       supabase,
       'email_queue_transactional',
-      sharedPostmarkToken
+      'transactional'
     )
 
     // Process marketing emails
     const marketingResults = await processQueue(
       supabase,
       'email_queue_marketing',
-      sharedPostmarkToken
+      'marketing'
     )
 
     return new Response(
@@ -89,7 +85,7 @@ serve(async (req) => {
 async function processQueue(
   supabase: any,
   queueTable: string,
-  sharedApiToken: string
+  emailType: 'transactional' | 'marketing'
 ) {
   const results = {
     processed: 0,
@@ -127,7 +123,7 @@ async function processQueue(
 
     // Process each tenant's emails
     for (const [tenantId, tenantEmails] of Object.entries(emailsByTenant)) {
-      // Get tenant's Postmark settings
+      // Get tenant's Postmark settings with API tokens
       const { data: settings, error: settingsError } = await supabase
         .from('postmark_settings')
         .select('*')
@@ -147,13 +143,26 @@ async function processQueue(
       // Process each email for this tenant
       for (const email of tenantEmails as EmailQueueItem[]) {
         try {
-          // Determine which API token to use
-          const apiToken = email.server_mode === 'dedicated' && settings.dedicated_api_token
-            ? settings.dedicated_api_token
-            : sharedApiToken
+          // Determine which API token to use based on server mode and email type
+          let apiToken: string | null = null
+          
+          if (settings.server_mode === 'shared') {
+            apiToken = settings.shared_server_token
+          } else if (settings.server_mode === 'dedicated') {
+            // Use different tokens for transactional vs marketing
+            if (emailType === 'transactional') {
+              apiToken = settings.dedicated_transactional_token
+            } else {
+              apiToken = settings.dedicated_marketing_token
+            }
+          }
+
+          if (!apiToken) {
+            throw new Error(`No API token found for ${settings.server_mode} mode, ${emailType} email`)
+          }
 
           // Send via Postmark
-          const postmarkResponse = await sendViaPostmark(email, settings, apiToken)
+          const postmarkResponse = await sendViaPostmark(email, settings, apiToken, emailType)
 
           if (postmarkResponse.success) {
             // Mark as sent
@@ -184,17 +193,24 @@ async function processQueue(
 async function sendViaPostmark(
   email: EmailQueueItem,
   settings: PostmarkSettings,
-  apiToken: string
+  apiToken: string,
+  emailType: 'transactional' | 'marketing'
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
     const postmarkUrl = 'https://api.postmarkapp.com/email'
+    
+    // Determine message stream based on email type
+    let messageStream = 'outbound' // default for transactional
+    if (emailType === 'marketing') {
+      messageStream = email.message_stream || 'broadcast'
+    }
     
     // Build email payload
     const payload: any = {
       From: email.from_email || `${settings.from_name || 'No Reply'} <${settings.from_email}>`,
       To: email.to_email,
       Subject: email.subject,
-      MessageStream: email.message_stream || 'outbound'
+      MessageStream: messageStream
     }
 
     // Add body content
@@ -214,6 +230,8 @@ async function sendViaPostmark(
       payload.TemplateModel = email.template_data || {}
     }
 
+    console.log(`Sending email via Postmark with token: ${apiToken.substring(0, 8)}...`)
+    
     const response = await fetch(postmarkUrl, {
       method: 'POST',
       headers: {
@@ -232,12 +250,14 @@ async function sendViaPostmark(
         messageId: result.MessageID
       }
     } else {
+      console.error('Postmark error:', result)
       return {
         success: false,
         error: result.Message || 'Failed to send email'
       }
     }
   } catch (error: any) {
+    console.error('Send error:', error)
     return {
       success: false,
       error: error.message
