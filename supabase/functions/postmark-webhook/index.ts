@@ -38,7 +38,7 @@ serve(async (req) => {
       .schema('contacts')
       .from('postmark_settings')
       .select('tenant_id')
-      .or(`server_id.eq.${serverId},marketing_server_id.eq.${serverId}`)
+      .or(`transactional_server_id.eq.${serverId},marketing_server_id.eq.${serverId}`)
       .single()
 
     if (settingsError || !settings) {
