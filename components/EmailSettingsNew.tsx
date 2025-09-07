@@ -32,25 +32,12 @@ interface TenantInfo {
   email_monthly_limit?: number
 }
 
-interface ServerStatus {
-  postmarkId?: string
-  tenantName?: string
-  emailTier?: string
-  mode?: 'shared' | 'dedicated'
-  isActivated?: boolean
-  canActivate?: boolean
-  serversExist?: boolean
-  tierLimits?: any
-}
-
 export default function EmailSettingsNew() {
   const [settings, setSettings] = useState<PostmarkSettings>({})
   const [tenant, setTenant] = useState<TenantInfo>({})
-  const [serverStatus, setServerStatus] = useState<ServerStatus>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activating, setActivating] = useState(false)
-  const [checkingServers, setCheckingServers] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [isProcessingQueue, setIsProcessingQueue] = useState(false)
@@ -58,7 +45,7 @@ export default function EmailSettingsNew() {
 
   useEffect(() => {
     fetchSettings()
-    checkServerStatus()
+    // checkServerStatus() - removed as endpoint no longer exists
   }, [])
 
   const fetchSettings = async () => {
@@ -78,21 +65,7 @@ export default function EmailSettingsNew() {
     }
   }
 
-  const checkServerStatus = async () => {
-    try {
-      setCheckingServers(true)
-      const response = await fetch(getApiUrl('/api/email/check-servers'))
-      
-      if (response.ok) {
-        const data = await response.json()
-        setServerStatus(data)
-      }
-    } catch (err) {
-      console.error('Failed to check server status:', err)
-    } finally {
-      setCheckingServers(false)
-    }
-  }
+  // checkServerStatus removed - endpoint no longer exists
 
   const handleActivateService = async () => {
     if (!confirm('This will create dedicated email servers for your tenant. Continue?')) {
@@ -113,9 +86,8 @@ export default function EmailSettingsNew() {
 
       if (response.ok) {
         setSuccess('Email service activated successfully! Your dedicated servers are now ready.')
-        // Refresh settings and status
+        // Refresh settings
         await fetchSettings()
-        await checkServerStatus()
       } else {
         const data = await response.json()
         setError(data.error || 'Failed to activate email service')
@@ -243,7 +215,7 @@ export default function EmailSettingsNew() {
 
   const isSharedMode = settings.server_mode === 'shared'
   const isDedicatedMode = settings.server_mode === 'dedicated'
-  const canActivate = serverStatus.canActivate && tenant.email_tier !== 'free'
+  const canActivate = tenant.postmark_id && tenant.email_tier !== 'free'
 
   return (
     <div className="space-y-6">
