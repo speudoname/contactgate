@@ -8,12 +8,12 @@
     "start": "next start -p 3001"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.57.2",
+    "@clerk/nextjs": "^6.31.9",
     "@types/jsonwebtoken": "^9.0.10",
+    "@vercel/postgres": "^0.10.0",
     "clsx": "^2.1.1",
     "cookies-next": "^6.1.0",
     "dotenv": "^17.2.2",
-    "jose": "^6.1.0",
     "jsonwebtoken": "^9.0.2",
     "next": "15.5.2",
     "node-fetch": "^2.7.0",
