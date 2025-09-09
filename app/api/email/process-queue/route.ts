@@ -1,28 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/server'
+import { requireProxyAuth } from '@/lib/auth/proxy-auth'
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if request is proxied from NUMgate
-    const isProxied = request.headers.get('x-proxied-from') === 'numgate'
-    
-    if (!isProxied) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Direct access not allowed' },
-        { status: 401 }
-      )
-    }
-    
-    // Trust NUMgate's authentication
-    const userId = request.headers.get('x-user-id')
-    const tenantId = request.headers.get('x-tenant-id')
-    
-    if (!userId || !tenantId) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Missing authentication headers' },
-        { status: 401 }
-      )
-    }
+    // Validate proxy authentication
+    const auth = requireProxyAuth(request)
+    const { tenantId, userId } = auth
 
     // Get the Edge Function URL from environment
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
