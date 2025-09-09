@@ -6,6 +6,8 @@ import { getApiUrl } from '@/lib/utils/api'
 import AddContactModal from './AddContactModal'
 import ViewEditContactModal from './ViewEditContactModal'
 import EmailSettingsNew from './EmailSettingsNew'
+import ContactsHeader from './ContactsHeader'
+import ContactsTabs from './ContactsTabs'
 import type { Contact } from '@/types'
 
 export default function ContactsContent() {
@@ -182,88 +184,21 @@ export default function ContactsContent() {
       )}
 
       {/* Header */}
-      <header className="bg-white border-b-2 border-black">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <h1 className="text-2xl font-bold">Contact Management</h1>
-              <p className="text-sm text-gray-600">{contacts.length} total contacts</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className={`px-4 py-2 border-2 border-black text-sm font-medium rounded-md bg-blue-400 hover:bg-blue-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all ${
-                  refreshing ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {refreshing ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Refreshing...
-                  </span>
-                ) : (
-                  '🔄 Refresh'
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  // Always go to /dashboard (like PageNumGate does)
-                  window.location.href = '/dashboard'
-                }}
-                className="px-4 py-2 border-2 border-black text-sm font-medium rounded-md bg-white hover:bg-gray-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all"
-              >
-                Back to NumGate
-              </button>
-              <button
-                onClick={handleAddContact}
-                className="px-4 py-2 border-2 border-black text-sm font-medium rounded-md bg-green-400 hover:bg-green-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all"
-              >
-                + Add Contact
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ContactsHeader
+        contacts={contacts}
+        loading={loading}
+        refreshing={refreshing}
+        onAddContact={handleAddContact}
+        onRefresh={handleRefresh}
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setActiveTab('contacts')}
-            className={`px-4 py-2 border-2 border-black text-sm font-medium rounded-md transition-all ${
-              activeTab === 'contacts'
-                ? 'bg-yellow-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
-                : 'bg-white hover:bg-gray-50 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]'
-            }`}
-          >
-            📋 Contacts
-          </button>
-          <button
-            onClick={() => setActiveTab('email')}
-            className={`px-4 py-2 border-2 border-black text-sm font-medium rounded-md transition-all ${
-              activeTab === 'email'
-                ? 'bg-yellow-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
-                : 'bg-white hover:bg-gray-50 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]'
-            }`}
-          >
-            ✉️ Send Email
-          </button>
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`px-4 py-2 border-2 border-black text-sm font-medium rounded-md transition-all ${
-              activeTab === 'settings'
-                ? 'bg-yellow-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
-                : 'bg-white hover:bg-gray-50 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]'
-            }`}
-          >
-            ⚙️ Email Settings
-          </button>
-        </div>
+        <ContactsTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
 
         {/* Tab Content */}
         {activeTab === 'contacts' ? (

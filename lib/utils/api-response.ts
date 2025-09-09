@@ -1,34 +1,16 @@
 import { NextResponse } from 'next/server'
+import { SharedApiResponse, ERROR_CODES, ApiSuccess } from './shared-error-handler'
 
-export interface ApiError {
-  error: string
-  message?: string
-  details?: string
-  code?: string
-  timestamp?: string
-}
+// Re-export shared types for backward compatibility
+export type { ApiError, ApiSuccess } from './shared-error-handler'
 
-export interface ApiSuccess<T = any> {
-  data?: T
-  message?: string
-  pagination?: {
-    page: number
-    limit: number
-    total: number
-    totalPages: number
-    hasNextPage: boolean
-    hasPrevPage: boolean
-  }
-}
-
+/**
+ * ContactGate API Response class - now uses shared error handler
+ * Maintains backward compatibility while providing enhanced error handling
+ */
 export class ApiResponse {
   static success<T>(data: T, message?: string, pagination?: ApiSuccess['pagination']) {
-    const response: ApiSuccess<T> = { data }
-    
-    if (message) response.message = message
-    if (pagination) response.pagination = pagination
-    
-    return NextResponse.json(response)
+    return SharedApiResponse.success(data, message, pagination)
   }
 
   static error(
@@ -37,34 +19,41 @@ export class ApiResponse {
     details?: string, 
     code?: string
   ) {
-    const response: ApiError = {
-      error,
-      timestamp: new Date().toISOString()
-    }
+    // Convert old format to new format
+    const errorCode = code || (status === 401 ? ERROR_CODES.UNAUTHORIZED : 
+                              status === 404 ? ERROR_CODES.NOT_FOUND :
+                              status === 400 ? ERROR_CODES.INVALID_INPUT :
+                              ERROR_CODES.INTERNAL_ERROR)
     
-    if (details) response.details = details
-    if (code) response.code = code
-    
-    return NextResponse.json(response, { status })
+    return SharedApiResponse.error(errorCode, error, status, details)
   }
 
   static unauthorized(message: string = 'Unauthorized') {
-    return this.error(message, 401)
+    return SharedApiResponse.unauthorized(message)
   }
 
   static notFound(message: string = 'Resource not found') {
-    return this.error(message, 404)
+    return SharedApiResponse.notFound(message)
   }
 
   static badRequest(message: string = 'Bad request', details?: string) {
-    return this.error(message, 400, details)
+    return SharedApiResponse.badRequest(message, details)
   }
 
   static internalError(message: string = 'Internal server error', details?: string) {
-    return this.error(message, 500, details)
+    return SharedApiResponse.internalError(message, details)
   }
 
   static validationError(message: string, details?: string) {
-    return this.error(message, 422, details)
+    return SharedApiResponse.validationError(message, details)
+  }
+
+  // ContactGate specific methods
+  static contactNotFound(contactId?: string) {
+    return SharedApiResponse.contactNotFound(contactId)
+  }
+
+  static emailError(message: string = 'Email operation failed', details?: any) {
+    return SharedApiResponse.emailError(message, details)
   }
 }

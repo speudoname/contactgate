@@ -1,7 +1,7 @@
-// Helper to get the correct API base path
+// Import the shared function
+import { getApiUrl as getApiUrlShared } from './shared-utils'
+
+// Helper to get the correct API base path for ContactGate
 export function getApiUrl(path: string): string {
-  // In production, we're served from /contacts subpath
-  // This works both when accessed directly and through proxy
-  const basePath = process.env.NODE_ENV === 'production' ? '/contacts' : ''
-  return `${basePath}${path}`
+  return getApiUrlShared(path, 'contacts')
 }
