@@ -10,7 +10,9 @@ export type { ApiError, ApiSuccess } from './shared-error-handler'
  */
 export class ApiResponse {
   static success<T>(data: T, message?: string, pagination?: ApiSuccess['pagination']) {
-    return SharedApiResponse.success(data, message, pagination)
+    // For backward compatibility, return data directly (not wrapped)
+    // This maintains the existing API contract
+    return NextResponse.json(data)
   }
 
   static error(
