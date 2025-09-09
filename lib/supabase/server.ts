@@ -1,36 +1,16 @@
-import { createClient } from '@supabase/supabase-js'
+import { SupabaseClientFactory, initializeSupabase } from './shared-client-factory'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!
+// Initialize the shared Supabase client factory
+initializeSupabase()
 
-// Admin client with service key (for server-side operations)
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-})
+// Export pre-configured clients for backward compatibility
+export const supabaseAdmin = SupabaseClientFactory.createAdminClient()
+export const supabaseContacts = SupabaseClientFactory.createSchemaClient('contacts')
 
-// Contacts schema client (for contacts-specific operations)
-export const supabaseContacts = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  },
-  db: {
-    schema: 'contacts'
-  }
-})
+// Export the factory for advanced use cases
+export { SupabaseClientFactory }
 
-// Helper to get client with specific schema
+// Helper function for backward compatibility
 export function getSupabaseWithSchema(schema: string) {
-  return createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    },
-    db: {
-      schema
-    }
-  })
+  return SupabaseClientFactory.createSchemaClient(schema)
 }
