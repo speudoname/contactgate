@@ -1,28 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/server'
-import { cookies } from 'next/headers'
-import { jwtVerify } from 'jose'
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if user is authenticated via JWT
-    const cookieStore = await cookies()
-    const token = cookieStore.get('jwt-token')
+    // Check if request is proxied from NUMgate
+    const isProxied = request.headers.get('x-proxied-from') === 'numgate'
     
-    if (!token) {
+    if (!isProxied) {
       return NextResponse.json(
-        { error: 'Unauthorized - No token' },
+        { error: 'Unauthorized - Direct access not allowed' },
         { status: 401 }
       )
     }
     
-    // Verify JWT token
-    try {
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET!)
-      await jwtVerify(token.value, secret)
-    } catch (error) {
+    // Trust NUMgate's authentication
+    const userId = request.headers.get('x-user-id')
+    const tenantId = request.headers.get('x-tenant-id')
+    
+    if (!userId || !tenantId) {
       return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
+        { error: 'Unauthorized - Missing authentication headers' },
         { status: 401 }
       )
     }
